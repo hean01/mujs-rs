@@ -93,7 +93,7 @@ impl Drop for State {
 mod tests {
     #[test]
     fn create_new_state() {
-        let state = ::State::new();
+        let _ = ::State::new();
     }
 
     #[test]
