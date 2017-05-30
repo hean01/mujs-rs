@@ -173,24 +173,27 @@ impl State {
         unsafe { js_pushnumber(self.state, value) }
     }
 
-    pub fn pushstring(self: &State, value: String) {
+    pub fn pushstring(self: &State, value: &str) {
         let c_str = CString::new(value).unwrap();
         unsafe { js_pushstring(self.state, c_str.as_ptr()) }
     }
 
-    pub fn hasproperty(self: &State, idx: i32, name: String) -> bool {
-        match unsafe { js_hasproperty(self.state, idx, name.as_ptr() as *const c_char) } {
+    pub fn hasproperty(self: &State, idx: i32, name: &str) -> bool {
+        let name_c_str = CString::new(name).unwrap();
+        match unsafe { js_hasproperty(self.state, idx, name_c_str.as_ptr()) } {
             0 => false,
             _ => true
         }
     }
 
-    pub fn setproperty(self: &State, idx: i32, name: String) {
-        unsafe { js_setproperty(self.state, idx, name.as_ptr() as *const c_char) };
+    pub fn setproperty(self: &State, idx: i32, name: &str) {
+        let name_c_str = CString::new(name).unwrap();
+        unsafe { js_setproperty(self.state, idx, name_c_str.as_ptr()) };
     }
 
-    pub fn getproperty(self: &State, idx: i32, name: String) {
-        unsafe { js_getproperty(self.state, idx, name.as_ptr() as *const c_char) };
+    pub fn getproperty(self: &State, idx: i32, name: &str) {
+        let name_c_str = CString::new(name).unwrap();
+        unsafe { js_getproperty(self.state, idx, name_c_str.as_ptr()) };
     }
 
     pub fn isdefined(self: &State, idx: i32) -> bool {
@@ -447,14 +450,14 @@ mod tests {
     #[test]
     fn pushstring_ascii() {
         let state = :: State::new();
-        state.pushstring("Hello World!".to_string());
+        state.pushstring("Hello World!");
         assert_eq!(state.tostring(0).ok().unwrap(), "Hello World!");
     }
 
     #[test]
     fn pushstring_utf8() {
         let state = :: State::new();
-        state.pushstring("Hello Båsse!".to_string());
+        state.pushstring("Hello Båsse!");
         assert_eq!(state.tostring(0).ok().unwrap(), "Hello Båsse!");
     }
 
@@ -555,7 +558,7 @@ mod tests {
         assert!(state.loadstring("myscript", "var person = {name: \"Tester\", age: 32}; person").is_ok());
         state.newobject();
         assert!(state.call(0).is_ok());
-        assert_eq!(state.hasproperty(0, "age".to_string()), true);
+        assert_eq!(state.hasproperty(0, "age"), true);
     }
 
     #[test]
@@ -564,7 +567,7 @@ mod tests {
         assert!(state.loadstring("myscript", "var person = {name: \"Tester\", age: 32}; person").is_ok());
         state.newobject();
         assert!(state.call(0).is_ok());
-        assert_eq!(state.hasproperty(0, "phone".to_string()), false);
+        assert_eq!(state.hasproperty(0, "phone"), false);
     }
 
     #[test]
@@ -573,7 +576,7 @@ mod tests {
         assert!(state.loadstring("myscript", "var person = {name: \"Tester\", age: 32}; person").is_ok());
         state.newobject();
         assert!(state.call(0).is_ok());
-        state.getproperty(0, "name".to_string());
+        state.getproperty(0, "name");
         assert_eq!(state.tostring(1).ok().unwrap(), "Tester");
     }
 
@@ -583,7 +586,7 @@ mod tests {
         assert!(state.loadstring("myscript", "var person = {name: \"Tester\", age: 32}; person").is_ok());
         state.newobject();
         assert!(state.call(0).is_ok());
-        state.getproperty(0, "phone".to_string());
+        state.getproperty(0, "phone");
         assert_eq!(state.isundefined(1), true);
     }
 
@@ -594,8 +597,8 @@ mod tests {
         state.newobject();
         assert!(state.call(0).is_ok());
         state.pushnumber(1.234);
-        state.setproperty(0, "age".to_string());
-        state.getproperty(0, "age".to_string());
+        state.setproperty(0, "age");
+        state.getproperty(0, "age");
         assert_eq!(state.tonumber(1).unwrap(), 1.234);
     }
 
@@ -606,8 +609,8 @@ mod tests {
         state.newobject();
         assert!(state.call(0).is_ok());
         state.pushnumber(1.234);
-        state.setproperty(0, "name".to_string());
-        state.getproperty(0, "name".to_string());
+        state.setproperty(0, "name");
+        state.getproperty(0, "name");
         assert_eq!(state.tonumber(1).unwrap(), 1.234);
     }
 
@@ -619,8 +622,8 @@ mod tests {
         state.newobject();
         assert!(state.call(0).is_ok());
         state.pushnumber(1.234);
-        state.setproperty(0, "phone".to_string());
-        state.getproperty(0, "phone".to_string());
+        state.setproperty(0, "phone");
+        state.getproperty(0, "phone");
         assert_eq!(state.tonumber(1).unwrap(), 1.234);
     }
 
