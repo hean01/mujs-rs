@@ -54,15 +54,23 @@ extern {
 }
 
 pub struct State {
-    state: *const c_void, 
+    state: *const c_void,
+    memctx: *const c_void,
 }
 
 impl State {
 
     pub fn new() -> State {
-        State {
-            state: unsafe { js_newstate(std::ptr::null(), std::ptr::null(), 0) }
-        }
+        let mut js = State {
+            state: std::ptr::null(),
+            memctx: std::ptr::null(),
+        };
+
+        let js_ptr: *const State = &js;
+        js.memctx = js_ptr as *const c_void;
+        js.state = unsafe { js_newstate(std::ptr::null(), js.memctx, 0) };
+
+        js
     }
 
     pub fn gc(self: &State, report: bool) {
