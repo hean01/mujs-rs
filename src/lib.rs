@@ -155,4 +155,31 @@ mod tests {
         let state = ::State::new();
         assert!(state.dostring("mystic.func();").is_err());
     }
+
+    #[test]
+    fn tostring_ascii() {
+        let state = ::State::new();
+        assert!(state.loadstring("myscript", "'Hello' + ' ' + 'World!';").is_ok());
+        state.newobject();
+        assert!(state.call(0).is_ok());
+        assert!(state.tostring(0).ok().unwrap() == "Hello World!");
+    }
+
+    #[test]
+    fn tostring_utf8() {
+        let state = ::State::new();
+        assert!(state.loadstring("myscript", "'Hello' + ' ' + 'Båsse!';").is_ok());
+        state.newobject();
+        assert!(state.call(0).is_ok());
+        assert!(state.tostring(0).ok().unwrap() == "Hello Båsse!");
+    }
+
+    #[test]
+    fn tostring_with_number_on_stack() {
+        let state = ::State::new();
+        assert!(state.loadstring("myscript", "240.32;").is_ok());
+        state.newobject();
+        assert!(state.call(0).is_ok());
+        assert!(state.tostring(0).ok().unwrap() == "240.32");
+    }
 }
