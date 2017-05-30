@@ -29,6 +29,9 @@ extern {
     fn js_pushboolean(J: *const c_void, v: c_int);
     fn js_pushnumber(J: *const c_void, v: c_double);
 
+    fn js_throw(J: *const c_void);
+    fn js_newerror(J: *const c_void, message: *const c_char);
+
     fn js_tostring(J: *const c_void, idx: i32) -> *const c_char;
     fn js_toboolean(J: *const c_void, idx: i32) -> c_int;
     fn js_tonumber(J: *const c_void, idx: i32) -> c_double;
@@ -80,6 +83,14 @@ impl State {
             0 => Ok(()),
             _ => Err("Failed to run script".to_string())
         }
+    }
+
+    pub fn throw(self: &State) {
+        unsafe { js_throw(self.state) };
+    }
+
+    pub fn newerror(self: &State, message: &str) {
+        unsafe { js_newerror(self.state, message.as_ptr() as *const i8) };
     }
 
     pub fn newobject(self: &State) {
@@ -342,4 +353,12 @@ mod tests {
         state.pushnumber(1.234);
         assert_eq!(state.tostring(0).ok().unwrap(), "1.234");
     }
+
+    #[test]
+    fn newerror_verify_as_string() {
+        let state = ::State::new();
+        state.newerror("This is an error");
+        assert_eq!(state.tostring(0).ok().unwrap(), "Error: This is an error");
+    }
+
 }
