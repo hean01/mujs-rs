@@ -26,6 +26,8 @@ extern {
 
     fn js_pushundefined(J: *const c_void);
     fn js_pushnull(J: *const c_void);
+    fn js_pushboolean(J: *const c_void, v: c_int);
+    fn js_pushnumber(J: *const c_void, v: c_double);
 
     fn js_tostring(J: *const c_void, idx: i32) -> *const c_char;
     fn js_toboolean(J: *const c_void, idx: i32) -> c_int;
@@ -90,6 +92,18 @@ impl State {
 
     pub fn pushnull(self: &State) {
         unsafe { js_pushnull(self.state) };
+    }
+
+    pub fn pushboolean(self: &State, value: bool) {
+        match value {
+            false => unsafe { js_pushboolean(self.state, 0) },
+            true => unsafe { js_pushboolean(self.state, 1) }
+        }
+    }
+
+
+    pub fn pushnumber(self: &State, value: f64) {
+        unsafe { js_pushnumber(self.state, value) }
     }
 
     pub fn tostring(self: &State, idx: i32) -> Result<String, String> {
@@ -313,5 +327,19 @@ mod tests {
         let state = ::State::new();
         state.pushnull();
         assert_eq!(state.tostring(0).ok().unwrap(), "null");
+    }
+
+    #[test]
+    fn pushboolean_verify_as_string() {
+        let state = ::State::new();
+        state.pushboolean(true);
+        assert_eq!(state.tostring(0).ok().unwrap(), "true");
+    }
+
+    #[test]
+    fn pushnumber_verify_as_string() {
+        let state = ::State::new();
+        state.pushnumber(1.234);
+        assert_eq!(state.tostring(0).ok().unwrap(), "1.234");
     }
 }
