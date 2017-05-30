@@ -39,7 +39,14 @@ extern {
     fn js_isundefined(J: *const c_void, idx: c_int) -> c_int;
 
     fn js_throw(J: *const c_void);
+
     fn js_newerror(J: *const c_void, message: *const c_char);
+    fn js_newevalerror(J: *const c_void, message: *const c_char);
+    fn js_newrangeerror(J: *const c_void, message: *const c_char);
+    fn js_newreferenceerror(J: *const c_void, message: *const c_char);
+    fn js_newsyntaxerror(J: *const c_void, message: *const c_char);
+    fn js_newtypeerror(J: *const c_void, message: *const c_char);
+    fn js_newurierror(J: *const c_void, message: *const c_char);
 
     fn js_tostring(J: *const c_void, idx: i32) -> *const c_char;
     fn js_toboolean(J: *const c_void, idx: i32) -> c_int;
@@ -100,6 +107,30 @@ impl State {
 
     pub fn newerror(self: &State, message: &str) {
         unsafe { js_newerror(self.state, message.as_ptr() as *const c_char) };
+    }
+
+    pub fn newevalerror(self: &State, message: &str) {
+        unsafe { js_newevalerror(self.state, message.as_ptr() as *const c_char) }
+    }
+
+    pub fn newrangeerror(self: &State, message: &str) {
+        unsafe { js_newrangeerror(self.state, message.as_ptr() as *const c_char) }
+    }
+
+    pub fn newreferenceerror(self: &State, message: &str) {
+        unsafe { js_newreferenceerror(self.state, message.as_ptr() as *const c_char) }
+    }
+
+    pub fn newsyntaxerror(self: &State, message: &str) {
+        unsafe { js_newsyntaxerror(self.state, message.as_ptr() as *const c_char) }
+    }
+
+    pub fn newtypeerror(self: &State, message: &str) {
+        unsafe { js_newtypeerror(self.state, message.as_ptr() as *const c_char) }
+    }
+
+    pub fn newurierror(self: &State, message: &str) {
+        unsafe { js_newurierror(self.state, message.as_ptr() as *const c_char) }
     }
 
     pub fn newobject(self: &State) {
@@ -404,6 +435,48 @@ mod tests {
         let state = ::State::new();
         state.newerror("This is an error");
         assert_eq!(state.tostring(0).ok().unwrap(), "Error: This is an error");
+    }
+
+    #[test]
+    fn newevalerror_verify_as_string() {
+        let state = ::State::new();
+        state.newevalerror("This is an error");
+        assert_eq!(state.tostring(0).ok().unwrap(), "EvalError: This is an error");
+    }
+
+    #[test]
+    fn newrangeerror_verify_as_string() {
+        let state = ::State::new();
+        state.newrangeerror("This is an error");
+        assert_eq!(state.tostring(0).ok().unwrap(), "RangeError: This is an error");
+    }
+
+    #[test]
+    fn newreferenceerror_verify_as_string() {
+        let state = ::State::new();
+        state.newreferenceerror("This is an error");
+        assert_eq!(state.tostring(0).ok().unwrap(), "ReferenceError: This is an error");
+    }
+
+    #[test]
+    fn newsyntaxerror_verify_as_string() {
+        let state = ::State::new();
+        state.newsyntaxerror("This is an error");
+        assert_eq!(state.tostring(0).ok().unwrap(), "SyntaxError: This is an error");
+    }
+
+    #[test]
+    fn newtypeerror_verify_as_string() {
+        let state = ::State::new();
+        state.newtypeerror("This is an error");
+        assert_eq!(state.tostring(0).ok().unwrap(), "TypeError: This is an error");
+    }
+
+    #[test]
+    fn newurierror_verify_as_string() {
+        let state = ::State::new();
+        state.newurierror("This is an error");
+        assert_eq!(state.tostring(0).ok().unwrap(), "URIError: This is an error");
     }
 
     #[test]
