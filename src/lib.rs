@@ -19,6 +19,7 @@ extern {
     fn js_gc(J: *const c_void, report: c_int);
     fn js_ploadstring(J: *const c_void, filename: *const u8, source: *const u8) -> c_int;
     fn js_pcall(J: *const c_void, n: c_int) -> c_int;
+    fn js_dostring(J: *const c_void, source: *const c_char) -> c_int;
     fn js_newobject(J: *const c_void);
     fn js_tostring(J: *const c_void, idx: i32) -> *const c_char;
 }
@@ -61,6 +62,13 @@ impl State {
                 assert!(err.is_ok());
                 Err(err.ok().unwrap())
             }
+        }
+    }
+
+    pub fn dostring(self: &State, source: &str) -> Result<(), String> {
+        match unsafe {js_dostring(self.state, source.as_ptr() as *const i8) } {
+            0 => Ok(()),
+            _ => Err("Failed to run script".to_string())
         }
     }
 
@@ -128,5 +136,23 @@ mod tests {
         assert!(state.loadstring("myscript", "Math.sin(3.2);").is_ok());
         state.newobject();
         assert!(state.call(0).is_ok());
+    }
+
+    #[test]
+    fn dostring_with_success() {
+        let state = ::State::new();
+        assert!(state.dostring("Math.sin(3.2);").is_ok());
+    }
+
+    #[test]
+    fn dostring_with_broken_script() {
+        let state = ::State::new();
+        assert!(state.dostring("func broken() {").is_err());
+    }
+
+    #[test]
+    fn dostring_with_runtime_error() {
+        let state = ::State::new();
+        assert!(state.dostring("mystic.func();").is_err());
     }
 }
