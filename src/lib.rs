@@ -29,6 +29,9 @@ extern {
     fn js_pushboolean(J: *const c_void, v: c_int);
     fn js_pushnumber(J: *const c_void, v: c_double);
 
+    fn js_isdefined(J: *const c_void, idx: c_int) -> c_int;
+    fn js_isundefined(J: *const c_void, idx: c_int) -> c_int;
+
     fn js_throw(J: *const c_void);
     fn js_newerror(J: *const c_void, message: *const c_char);
 
@@ -115,6 +118,20 @@ impl State {
 
     pub fn pushnumber(self: &State, value: f64) {
         unsafe { js_pushnumber(self.state, value) }
+    }
+
+    pub fn isdefined(self: &State, idx: i32) -> bool {
+        match unsafe { js_isdefined(self.state, idx) } {
+            0 => false,
+            _ => true
+        }
+    }
+
+    pub fn isundefined(self: &State, idx: i32) -> bool {
+        match unsafe { js_isundefined(self.state, idx) } {
+            0 => false,
+            _ => true
+        }
     }
 
     pub fn tostring(self: &State, idx: i32) -> Result<String, String> {
@@ -359,6 +376,34 @@ mod tests {
         let state = ::State::new();
         state.newerror("This is an error");
         assert_eq!(state.tostring(0).ok().unwrap(), "Error: This is an error");
+    }
+
+    #[test]
+    fn isdefined_on_undefined_is_false() {
+        let state = ::State::new();
+        state.pushundefined();
+        assert_eq!(state.isdefined(0), false);
+    }
+
+    #[test]
+    fn isdefined_on_number_is_true() {
+        let state = ::State::new();
+        state.pushnumber(1.234);
+        assert_eq!(state.isdefined(0), true);
+    }
+
+    #[test]
+    fn isundefined_on_undefined_is_true() {
+        let state = ::State::new();
+        state.pushundefined();
+        assert_eq!(state.isundefined(0), true);
+    }
+
+    #[test]
+    fn isundefined_on_number_is_false() {
+        let state = ::State::new();
+        state.pushnumber(1.234);
+        assert_eq!(state.isundefined(0), false);
     }
 
 }
