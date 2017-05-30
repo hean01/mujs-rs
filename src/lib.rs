@@ -22,6 +22,7 @@ extern {
     fn js_dostring(J: *const c_void, source: *const c_char) -> c_int;
     fn js_newobject(J: *const c_void);
     fn js_tostring(J: *const c_void, idx: i32) -> *const c_char;
+    fn js_toboolean(J: *const c_void, idx: i32) -> c_int;
 }
 
 pub struct State {
@@ -86,6 +87,13 @@ impl State {
         Ok(unsafe {
             CStr::from_ptr(c_buf).to_string_lossy().into_owned()
         })
+    }
+
+    pub fn toboolean(self: &State, idx: i32) -> Result<bool, String> {
+        match unsafe { js_toboolean(self.state, idx) } {
+            0 => Ok(false),
+            _ => Ok(true)
+        }
     }
 
 }
@@ -182,4 +190,59 @@ mod tests {
         assert!(state.call(0).is_ok());
         assert!(state.tostring(0).ok().unwrap() == "240.32");
     }
+
+    #[test]
+    fn toboolean_with_true_on_stack() {
+        let state = ::State::new();
+        assert!(state.loadstring("myscript", "true").is_ok());
+        state.newobject();
+        assert!(state.call(0).is_ok());
+        assert!(state.toboolean(0).ok().unwrap() == true);
+    }
+
+    #[test]
+    fn toboolean_with_false_on_stack() {
+        let state = ::State::new();
+        assert!(state.loadstring("myscript", "false").is_ok());
+        state.newobject();
+        assert!(state.call(0).is_ok());
+        assert!(state.toboolean(0).ok().unwrap() == false);
+    }
+
+    #[test]
+    fn toboolean_with_positive_number_on_stack() {
+        let state = ::State::new();
+        assert!(state.loadstring("myscript", "1").is_ok());
+        state.newobject();
+        assert!(state.call(0).is_ok());
+        assert!(state.toboolean(0).ok().unwrap() == true);
+    }
+
+    #[test]
+    fn toboolean_with_zero_number_on_stack() {
+        let state = ::State::new();
+        assert!(state.loadstring("myscript", "0").is_ok());
+        state.newobject();
+        assert!(state.call(0).is_ok());
+        assert!(state.toboolean(0).ok().unwrap() == false);
+    }
+
+    #[test]
+    fn toboolean_with_null_on_stack() {
+        let state = ::State::new();
+        assert!(state.loadstring("myscript", "null").is_ok());
+        state.newobject();
+        assert!(state.call(0).is_ok());
+        assert!(state.toboolean(0).ok().unwrap() == false);
+    }
+
+    #[test]
+    fn toboolean_with_undefined_on_stack() {
+        let state = ::State::new();
+        assert!(state.loadstring("myscript", "undefined").is_ok());
+        state.newobject();
+        assert!(state.call(0).is_ok());
+        assert!(state.toboolean(0).ok().unwrap() == false);
+    }
+
 }
