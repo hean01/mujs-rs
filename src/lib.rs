@@ -177,7 +177,7 @@ mod tests {
         assert!(state.loadstring("myscript", "'Hello' + ' ' + 'World!';").is_ok());
         state.newobject();
         assert!(state.call(0).is_ok());
-        assert!(state.tostring(0).ok().unwrap() == "Hello World!");
+        assert_eq!(state.tostring(0).ok().unwrap(), "Hello World!");
     }
 
     #[test]
@@ -186,7 +186,7 @@ mod tests {
         assert!(state.loadstring("myscript", "'Hello' + ' ' + 'Båsse!';").is_ok());
         state.newobject();
         assert!(state.call(0).is_ok());
-        assert!(state.tostring(0).ok().unwrap() == "Hello Båsse!");
+        assert_eq!(state.tostring(0).ok().unwrap(), "Hello Båsse!");
     }
 
     #[test]
@@ -195,7 +195,7 @@ mod tests {
         assert!(state.loadstring("myscript", "240.32;").is_ok());
         state.newobject();
         assert!(state.call(0).is_ok());
-        assert!(state.tostring(0).ok().unwrap() == "240.32");
+        assert_eq!(state.tostring(0).ok().unwrap(), "240.32");
     }
 
     #[test]
@@ -204,7 +204,7 @@ mod tests {
         assert!(state.loadstring("myscript", "true").is_ok());
         state.newobject();
         assert!(state.call(0).is_ok());
-        assert!(state.toboolean(0).ok().unwrap() == true);
+        assert_eq!(state.toboolean(0).ok().unwrap(), true);
     }
 
     #[test]
@@ -213,7 +213,7 @@ mod tests {
         assert!(state.loadstring("myscript", "false").is_ok());
         state.newobject();
         assert!(state.call(0).is_ok());
-        assert!(state.toboolean(0).ok().unwrap() == false);
+        assert_eq!(state.toboolean(0).ok().unwrap(), false);
     }
 
     #[test]
@@ -222,7 +222,7 @@ mod tests {
         assert!(state.loadstring("myscript", "1").is_ok());
         state.newobject();
         assert!(state.call(0).is_ok());
-        assert!(state.toboolean(0).ok().unwrap() == true);
+        assert_eq!(state.toboolean(0).ok().unwrap(), true);
     }
 
     #[test]
@@ -231,7 +231,7 @@ mod tests {
         assert!(state.loadstring("myscript", "0").is_ok());
         state.newobject();
         assert!(state.call(0).is_ok());
-        assert!(state.toboolean(0).ok().unwrap() == false);
+        assert_eq!(state.toboolean(0).ok().unwrap(), false);
     }
 
     #[test]
@@ -240,7 +240,7 @@ mod tests {
         assert!(state.loadstring("myscript", "null").is_ok());
         state.newobject();
         assert!(state.call(0).is_ok());
-        assert!(state.toboolean(0).ok().unwrap() == false);
+        assert_eq!(state.toboolean(0).ok().unwrap(), false);
     }
 
     #[test]
@@ -249,7 +249,7 @@ mod tests {
         assert!(state.loadstring("myscript", "undefined").is_ok());
         state.newobject();
         assert!(state.call(0).is_ok());
-        assert!(state.toboolean(0).ok().unwrap() == false);
+        assert_eq!(state.toboolean(0).ok().unwrap(), false);
     }
 
     #[test]
@@ -258,16 +258,16 @@ mod tests {
         assert!(state.loadstring("myscript", "1.53278").is_ok());
         state.newobject();
         assert!(state.call(0).is_ok());
-        assert!(state.tonumber(0).ok().unwrap() == 1.53278);
+        assert_eq!(state.tonumber(0).ok().unwrap(), 1.53278);
     }
 
     #[test]
     fn tonumber_with_negative_number_on_stack() {
         let state = ::State::new();
-        assert!(state.loadstring("myscript", "-1.53278").is_ok());
+        assert!(state.loadstring("myscript", "-1.53278;").is_ok());
         state.newobject();
         assert!(state.call(0).is_ok());
-        assert!(state.tonumber(0).ok().unwrap() == -1.53278);
+        assert_eq!(state.tonumber(0).ok().unwrap(), -1.53278);
     }
 
     #[test]
@@ -276,7 +276,7 @@ mod tests {
         assert!(state.loadstring("myscript", "'1.53278'").is_ok());
         state.newobject();
         assert!(state.call(0).is_ok());
-        assert!(state.tonumber(0).ok().unwrap() == 1.53278);
+        assert_eq!(state.tonumber(0).ok().unwrap(), 1.53278);
     }
 
     #[test]
@@ -285,6 +285,6 @@ mod tests {
         assert!(state.loadstring("myscript", "'hello world'").is_ok());
         state.newobject();
         assert!(state.call(0).is_ok());
-        assert!(state.tonumber(0).ok().unwrap().classify() == std::num::FpCategory::Nan);
+        assert_eq!(state.tonumber(0).ok().unwrap().classify(), std::num::FpCategory::Nan);
     }
 }
