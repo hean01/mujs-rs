@@ -26,6 +26,10 @@ extern {
 
     fn js_isobject(J: *const c_void, idx: c_int) -> c_int;
 
+    fn js_hasproperty(J: *const c_void, idx: c_int, name: *const c_char) -> c_int;
+    fn js_getproperty(J: *const c_void, idx: c_int, name: *const c_char);
+    fn js_setproperty(J: *const c_void, idx: c_int, name: *const c_char);
+
     fn js_pushundefined(J: *const c_void);
     fn js_pushnull(J: *const c_void);
     fn js_pushboolean(J: *const c_void, v: c_int);
@@ -127,6 +131,21 @@ impl State {
 
     pub fn pushnumber(self: &State, value: f64) {
         unsafe { js_pushnumber(self.state, value) }
+    }
+
+    pub fn hasproperty(self: &State, idx: i32, name: String) -> bool {
+        match unsafe { js_hasproperty(self.state, idx, name.as_ptr() as *const i8) } {
+            0 => false,
+            _ => true
+        }
+    }
+
+    pub fn setproperty(self: &State, idx: i32, name: String) {
+        unsafe { js_setproperty(self.state, idx, name.as_ptr() as *const i8) };
+    }
+
+    pub fn getproperty(self: &State, idx: i32, name: String) {
+        unsafe { js_getproperty(self.state, idx, name.as_ptr() as *const i8) };
     }
 
     pub fn isdefined(self: &State, idx: i32) -> bool {
@@ -427,6 +446,81 @@ mod tests {
         let state = ::State::new();
         state.pushnumber(1.234);
         assert_eq!(state.isobject(0), false);
+    }
+
+    #[test]
+    fn hasproperty_on_object_with_existing_property() {
+        let state = ::State::new();
+        assert!(state.loadstring("myscript", "var person = {name: \"Tester\", age: 32}; person").is_ok());
+        state.newobject();
+        assert!(state.call(0).is_ok());
+        assert_eq!(state.hasproperty(0, "age".to_string()), true);
+    }
+
+    #[test]
+    fn hasproperty_on_object_with_non_existing_property() {
+        let state = ::State::new();
+        assert!(state.loadstring("myscript", "var person = {name: \"Tester\", age: 32}; person").is_ok());
+        state.newobject();
+        assert!(state.call(0).is_ok());
+        assert_eq!(state.hasproperty(0, "phone".to_string()), false);
+    }
+
+    #[test]
+    fn getproperty_on_object_with_existing_property() {
+        let state = ::State::new();
+        assert!(state.loadstring("myscript", "var person = {name: \"Tester\", age: 32}; person").is_ok());
+        state.newobject();
+        assert!(state.call(0).is_ok());
+        state.getproperty(0, "name".to_string());
+        assert_eq!(state.tostring(1).ok().unwrap(), "Tester");
+    }
+
+    #[test]
+    fn getproperty_on_object_with_non_existing_property() {
+        let state = ::State::new();
+        assert!(state.loadstring("myscript", "var person = {name: \"Tester\", age: 32}; person").is_ok());
+        state.newobject();
+        assert!(state.call(0).is_ok());
+        state.getproperty(0, "phone".to_string());
+        assert_eq!(state.isundefined(1), true);
+    }
+
+    #[test]
+    fn setproperty_on_object_as_number_value() {
+        let state = ::State::new();
+        assert!(state.loadstring("myscript", "var person = {name: \"Tester\", age: 32}; person").is_ok());
+        state.newobject();
+        assert!(state.call(0).is_ok());
+        state.pushnumber(1.234);
+        state.setproperty(0, "age".to_string());
+        state.getproperty(0, "age".to_string());
+        assert_eq!(state.tonumber(1).unwrap(), 1.234);
+    }
+
+    #[test]
+    fn setproperty_on_object_changing_to_number_value() {
+        let state = ::State::new();
+        assert!(state.loadstring("myscript", "var person = {name: \"Tester\", age: 32}; person").is_ok());
+        state.newobject();
+        assert!(state.call(0).is_ok());
+        state.pushnumber(1.234);
+        state.setproperty(0, "name".to_string());
+        state.getproperty(0, "name".to_string());
+        assert_eq!(state.tonumber(1).unwrap(), 1.234);
+    }
+
+
+    #[test]
+    fn setproperty_on_object_non_existing_property() {
+        let state = ::State::new();
+        assert!(state.loadstring("myscript", "var person = {name: \"Tester\", age: 32}; person").is_ok());
+        state.newobject();
+        assert!(state.call(0).is_ok());
+        state.pushnumber(1.234);
+        state.setproperty(0, "phone".to_string());
+        state.getproperty(0, "phone".to_string());
+        assert_eq!(state.tonumber(1).unwrap(), 1.234);
     }
 
 }
