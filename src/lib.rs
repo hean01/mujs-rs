@@ -24,6 +24,8 @@ extern {
 
     fn js_newobject(J: *const c_void);
 
+    fn js_isobject(J: *const c_void, idx: c_int) -> c_int;
+
     fn js_pushundefined(J: *const c_void);
     fn js_pushnull(J: *const c_void);
     fn js_pushboolean(J: *const c_void, v: c_int);
@@ -98,6 +100,13 @@ impl State {
 
     pub fn newobject(self: &State) {
         unsafe { js_newobject(self.state) };
+    }
+
+    pub fn isobject(self: &State, idx: i32) -> bool {
+        match unsafe { js_isobject(self.state, idx) } {
+            0 => false,
+            _ => true
+        }
     }
 
     pub fn pushundefined(self: &State) {
@@ -404,6 +413,20 @@ mod tests {
         let state = ::State::new();
         state.pushnumber(1.234);
         assert_eq!(state.isundefined(0), false);
+    }
+
+    #[test]
+    fn isobject_on_object_is_true() {
+        let state = ::State::new();
+        state.newobject();
+        assert_eq!(state.isobject(0), true);
+    }
+
+    #[test]
+    fn isobject_on_number_is_false() {
+        let state = ::State::new();
+        state.pushnumber(1.234);
+        assert_eq!(state.isobject(0), false);
     }
 
 }
