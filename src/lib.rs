@@ -18,7 +18,7 @@ extern {
     fn js_newstate(alloc: *const c_void, context: *const c_void, flags: c_int) -> *const c_void;
     fn js_freestate(J: *const c_void);
     fn js_gc(J: *const c_void, report: c_int);
-    fn js_ploadstring(J: *const c_void, filename: *const u8, source: *const u8) -> c_int;
+    fn js_ploadstring(J: *const c_void, filename: *const c_char, source: *const c_char) -> c_int;
     fn js_pcall(J: *const c_void, n: c_int) -> c_int;
     fn js_dostring(J: *const c_void, source: *const c_char) -> c_int;
 
@@ -66,7 +66,7 @@ impl State {
     }
 
     pub fn loadstring(self: &State, filename: &str, source: &str) -> Result<(), String> {
-        match unsafe { js_ploadstring(self.state, filename.as_ptr(), source.as_ptr()) } {
+        match unsafe { js_ploadstring(self.state, filename.as_ptr() as *const c_char, source.as_ptr() as *const c_char) } {
             0 => Ok(()),
             _ => {
                 let err = self.tostring(-1);
@@ -88,7 +88,7 @@ impl State {
     }
 
     pub fn dostring(self: &State, source: &str) -> Result<(), String> {
-        match unsafe {js_dostring(self.state, source.as_ptr() as *const i8) } {
+        match unsafe {js_dostring(self.state, source.as_ptr() as *const c_char) } {
             0 => Ok(()),
             _ => Err("Failed to run script".to_string())
         }
@@ -99,7 +99,7 @@ impl State {
     }
 
     pub fn newerror(self: &State, message: &str) {
-        unsafe { js_newerror(self.state, message.as_ptr() as *const i8) };
+        unsafe { js_newerror(self.state, message.as_ptr() as *const c_char) };
     }
 
     pub fn newobject(self: &State) {
@@ -134,18 +134,18 @@ impl State {
     }
 
     pub fn hasproperty(self: &State, idx: i32, name: String) -> bool {
-        match unsafe { js_hasproperty(self.state, idx, name.as_ptr() as *const i8) } {
+        match unsafe { js_hasproperty(self.state, idx, name.as_ptr() as *const c_char) } {
             0 => false,
             _ => true
         }
     }
 
     pub fn setproperty(self: &State, idx: i32, name: String) {
-        unsafe { js_setproperty(self.state, idx, name.as_ptr() as *const i8) };
+        unsafe { js_setproperty(self.state, idx, name.as_ptr() as *const c_char) };
     }
 
     pub fn getproperty(self: &State, idx: i32, name: String) {
-        unsafe { js_getproperty(self.state, idx, name.as_ptr() as *const i8) };
+        unsafe { js_getproperty(self.state, idx, name.as_ptr() as *const c_char) };
     }
 
     pub fn isdefined(self: &State, idx: i32) -> bool {
