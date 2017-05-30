@@ -21,7 +21,12 @@ extern {
     fn js_ploadstring(J: *const c_void, filename: *const u8, source: *const u8) -> c_int;
     fn js_pcall(J: *const c_void, n: c_int) -> c_int;
     fn js_dostring(J: *const c_void, source: *const c_char) -> c_int;
+
     fn js_newobject(J: *const c_void);
+
+    fn js_pushundefined(J: *const c_void);
+    fn js_pushnull(J: *const c_void);
+
     fn js_tostring(J: *const c_void, idx: i32) -> *const c_char;
     fn js_toboolean(J: *const c_void, idx: i32) -> c_int;
     fn js_tonumber(J: *const c_void, idx: i32) -> c_double;
@@ -77,6 +82,14 @@ impl State {
 
     pub fn newobject(self: &State) {
         unsafe { js_newobject(self.state) };
+    }
+
+    pub fn pushundefined(self: &State) {
+        unsafe { js_pushundefined(self.state) };
+    }
+
+    pub fn pushnull(self: &State) {
+        unsafe { js_pushnull(self.state) };
     }
 
     pub fn tostring(self: &State, idx: i32) -> Result<String, String> {
@@ -286,5 +299,19 @@ mod tests {
         state.newobject();
         assert!(state.call(0).is_ok());
         assert_eq!(state.tonumber(0).ok().unwrap().classify(), std::num::FpCategory::Nan);
+    }
+
+    #[test]
+    fn pushundefined_verify_as_string() {
+        let state = ::State::new();
+        state.pushundefined();
+        assert_eq!(state.tostring(0).ok().unwrap(), "undefined");
+     }
+
+    #[test]
+    fn pushnull_verify_as_string() {
+        let state = ::State::new();
+        state.pushnull();
+        assert_eq!(state.tostring(0).ok().unwrap(), "null");
     }
 }
