@@ -2,7 +2,7 @@ extern crate libc;
 
 
 #[link(name = "mujs", kind="static")]
-use std::ffi::CStr;
+use std::ffi::{CStr, CString};
 
 
 use libc::{
@@ -34,6 +34,7 @@ extern {
     fn js_pushnull(J: *const c_void);
     fn js_pushboolean(J: *const c_void, v: c_int);
     fn js_pushnumber(J: *const c_void, v: c_double);
+    fn js_pushstring(J: *const c_void, v: *const c_char);
 
     fn js_isdefined(J: *const c_void, idx: c_int) -> c_int;
     fn js_isundefined(J: *const c_void, idx: c_int) -> c_int;
@@ -170,6 +171,11 @@ impl State {
 
     pub fn pushnumber(self: &State, value: f64) {
         unsafe { js_pushnumber(self.state, value) }
+    }
+
+    pub fn pushstring(self: &State, value: String) {
+        let c_str = CString::new(value).unwrap();
+        unsafe { js_pushstring(self.state, c_str.as_ptr()) }
     }
 
     pub fn hasproperty(self: &State, idx: i32, name: String) -> bool {
@@ -436,6 +442,20 @@ mod tests {
         let state = ::State::new();
         state.pushnumber(1.234);
         assert_eq!(state.tostring(0).ok().unwrap(), "1.234");
+    }
+
+    #[test]
+    fn pushstring_ascii() {
+        let state = :: State::new();
+        state.pushstring("Hello World!".to_string());
+        assert_eq!(state.tostring(0).ok().unwrap(), "Hello World!");
+    }
+
+    #[test]
+    fn pushstring_utf8() {
+        let state = :: State::new();
+        state.pushstring("Hello Båsse!".to_string());
+        assert_eq!(state.tostring(0).ok().unwrap(), "Hello Båsse!");
     }
 
     #[test]
