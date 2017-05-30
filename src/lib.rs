@@ -7,6 +7,7 @@ use std::ffi::CStr;
 
 use libc::{
     c_int,
+    c_double,
     c_void,
     c_char
 };
@@ -23,6 +24,7 @@ extern {
     fn js_newobject(J: *const c_void);
     fn js_tostring(J: *const c_void, idx: i32) -> *const c_char;
     fn js_toboolean(J: *const c_void, idx: i32) -> c_int;
+    fn js_tonumber(J: *const c_void, idx: i32) -> c_double;
 }
 
 pub struct State {
@@ -96,6 +98,10 @@ impl State {
         }
     }
 
+    pub fn tonumber(self: &State, idx: i32) -> Result<f64, String> {
+        Ok( unsafe { js_tonumber(self.state, idx) } )
+    }
+
 }
 
 impl Drop for State {
@@ -107,6 +113,7 @@ impl Drop for State {
 
 #[cfg(test)]
 mod tests {
+    use std;
     #[test]
     fn create_new_state() {
         let _ = ::State::new();
@@ -245,4 +252,39 @@ mod tests {
         assert!(state.toboolean(0).ok().unwrap() == false);
     }
 
+    #[test]
+    fn tonumber_with_positive_number_on_stack() {
+        let state = ::State::new();
+        assert!(state.loadstring("myscript", "1.53278").is_ok());
+        state.newobject();
+        assert!(state.call(0).is_ok());
+        assert!(state.tonumber(0).ok().unwrap() == 1.53278);
+    }
+
+    #[test]
+    fn tonumber_with_negative_number_on_stack() {
+        let state = ::State::new();
+        assert!(state.loadstring("myscript", "-1.53278").is_ok());
+        state.newobject();
+        assert!(state.call(0).is_ok());
+        assert!(state.tonumber(0).ok().unwrap() == -1.53278);
+    }
+
+    #[test]
+    fn tonumber_with_valid_string_on_stack() {
+        let state = ::State::new();
+        assert!(state.loadstring("myscript", "'1.53278'").is_ok());
+        state.newobject();
+        assert!(state.call(0).is_ok());
+        assert!(state.tonumber(0).ok().unwrap() == 1.53278);
+    }
+
+    #[test]
+    fn tonumber_with_invalid_string_on_stack() {
+        let state = ::State::new();
+        assert!(state.loadstring("myscript", "'hello world'").is_ok());
+        state.newobject();
+        assert!(state.call(0).is_ok());
+        assert!(state.tonumber(0).ok().unwrap().classify() == std::num::FpCategory::Nan);
+    }
 }
