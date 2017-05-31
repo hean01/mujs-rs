@@ -106,7 +106,9 @@ impl State {
     }
 
     pub fn loadstring(self: &State, filename: &str, source: &str) -> Result<(), String> {
-        match unsafe { js_ploadstring(self.state, filename.as_ptr() as *const c_char, source.as_ptr() as *const c_char) } {
+        let name_c_str = CString::new(filename).unwrap();
+        let source_c_str = CString::new(source).unwrap();
+        match unsafe { js_ploadstring(self.state, name_c_str.as_ptr(), source_c_str.as_ptr()) } {
             0 => Ok(()),
             _ => {
                 let err = self.tostring(-1);
@@ -128,7 +130,8 @@ impl State {
     }
 
     pub fn dostring(self: &State, source: &str) -> Result<(), String> {
-        match unsafe {js_dostring(self.state, source.as_ptr() as *const c_char) } {
+        let source_c_str = CString::new(source).unwrap();
+        match unsafe {js_dostring(self.state, source_c_str.as_ptr()) } {
             0 => Ok(()),
             _ => Err("Failed to run script".to_string())
         }
