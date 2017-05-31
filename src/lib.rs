@@ -1,3 +1,20 @@
+//! # Rust MuJS bindings
+//!
+//! [MuJS](http://mujs.com) is a lightweight implementation of the Javascript language in a library.
+//!
+//! Its primary purpose and design is for embedding in other software
+//! to add scripting capability to those programs, but it can also be
+//! used as an extensible scripting language.
+//!
+//! In contrast to other programs that are large and complex, MuJS was
+//! designed with a focus on small size, correctness and
+//! simplicity. MuJS is written in portable C and implements
+//! ECMAScript as specified by ECMA-262.
+//!
+//! The interface for binding with native code is designed to be as
+//! simple as possible to use, and is similar to Lua.
+//!
+
 #[macro_use]
 extern crate bitflags;
 extern crate libc;
@@ -66,6 +83,24 @@ extern {
 
 bitflags! {
     pub struct PropertyAttributes: c_int {
+        /// Read only property attribute
+        ///
+        /// # Examples
+        ///
+        /// ```
+        /// use mujs;
+        ///
+        /// let state = mujs::State::new(mujs::JS_STRICT);
+        ///
+        /// state.newobject();
+        /// state.pushnumber(32.0);
+        /// state.setproperty(-2, "age");
+        /// state.defglobal("me", mujs::JS_READONLY);
+        /// ```
+        ///
+        /// The above example defines an object in global space named
+        /// ```me```, which can not be assigned another object due to the
+        /// read only flag.
         const JS_READONLY = 1;
         const JS_DONTENUM = 2;
         const JS_DONTCONF = 4;
@@ -74,10 +109,13 @@ bitflags! {
 
 bitflags! {
     pub struct StateFlags: c_int {
+        /// Compile and run code using ES5 strict mode.
         const JS_STRICT = 1;
     }
 }
 
+/// Interpreter state contains the value stack, protected environments
+/// and environment records.
 pub struct State {
     state: *const c_void,
     memctx: *const c_void,
@@ -85,6 +123,14 @@ pub struct State {
 
 impl State {
 
+    /// Constructs a new State.
+    ///
+    /// # Examples
+    /// ```
+    /// use mujs;
+    ///
+    /// let state = mujs::State::new(mujs::JS_STRICT);
+    /// ```
     pub fn new(flags: StateFlags) -> State {
         let mut js = State {
             state: std::ptr::null(),
@@ -98,6 +144,22 @@ impl State {
         js
     }
 
+    /// Run garbage collector.
+    ///
+    /// # Arguments
+    ///
+    /// * `report` - Boolean to control report output of GC statistics to stdout
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use mujs;
+    ///
+    /// let state = mujs::State::new(mujs::JS_STRICT);
+    ///
+    /// state.gc(true);
+    /// ```
+    ///
     pub fn gc(self: &State, report: bool) {
         match report {
             true => unsafe { js_gc(self.state, 1) },
@@ -105,6 +167,30 @@ impl State {
         }
     }
 
+    /// Compile a script with result push on top of stack as a
+    /// function. This function can then be executed using
+    /// call() method.
+    ///
+    /// # Arguments
+    ///
+    /// * `filename` - A virtual filename for the source
+    /// * `source` - A string slice with source to compile
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use mujs;
+    ///
+    /// let state = mujs::State::new(mujs::JS_STRICT);
+    /// let source = "Math.sin(1.234)";
+    ///
+    /// state.loadstring("myscript", source).unwrap();
+    /// state.newobject();
+    /// state.call(0).unwrap();
+    ///
+    /// println!("{:?}", state.tostring(0).unwrap());
+    /// ```
+    ///
     pub fn loadstring(self: &State, filename: &str, source: &str) -> Result<(), String> {
         let name_c_str = CString::new(filename).unwrap();
         let source_c_str = CString::new(source).unwrap();
