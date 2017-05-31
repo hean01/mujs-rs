@@ -56,6 +56,9 @@ extern {
     fn js_newtypeerror(J: *const c_void, message: *const c_char);
     fn js_newurierror(J: *const c_void, message: *const c_char);
 
+    fn js_gettop(J: *const c_void) -> c_int;
+    fn js_pop(J: *const c_void, n: c_int);
+
     fn js_tostring(J: *const c_void, idx: i32) -> *const c_char;
     fn js_toboolean(J: *const c_void, idx: i32) -> c_int;
     fn js_tonumber(J: *const c_void, idx: i32) -> c_double;
@@ -161,6 +164,14 @@ impl State {
 
     pub fn newurierror(self: &State, message: &str) {
         unsafe { js_newurierror(self.state, message.as_ptr() as *const c_char) }
+    }
+
+    pub fn gettop(self: &State) -> i32 {
+        unsafe {  js_gettop(self.state) }
+    }
+
+    pub fn pop(self: &State, n: i32) {
+        unsafe { js_pop(self.state, n) }
     }
 
     pub fn newobject(self: &State) {
@@ -548,6 +559,54 @@ mod tests {
         let state = ::State::new(::StateFlags{bits: 0});
         state.newurierror("This is an error");
         assert_eq!(state.tostring(0).ok().unwrap(), "URIError: This is an error");
+    }
+
+    #[test]
+    fn gettop_with_empty_stack() {
+        let state = ::State::new(::JS_STRICT);
+        assert_eq!(state.gettop(), 0);
+    }
+
+    #[test]
+    fn gettop_with_one_item_on_stack() {
+        let state = ::State::new(::JS_STRICT);
+        state.pushundefined();
+        assert_eq!(state.gettop(), 1);
+    }
+
+    #[test]
+    fn gettop_with_five_items_on_stack() {
+        let state = ::State::new(::JS_STRICT);
+        state.pushnumber(1.0);
+        state.pushnumber(2.0);
+        state.pushnumber(3.0);
+        state.pushnumber(4.0);
+        state.pushnumber(5.0);
+        assert_eq!(state.gettop(), 5);
+    }
+
+    #[test]
+    fn pop_with_empty_stack() {
+        let state = ::State::new(::JS_STRICT);
+        state.pop(0);
+        assert_eq!(state.gettop(), 0);
+    }
+
+    #[test]
+    fn pop_one_and_only_item_on_stack() {
+        let state = ::State::new(::JS_STRICT);
+        state.pushnumber(1.0);
+        state.pop(1);
+        assert_eq!(state.gettop(), 0);
+    }
+
+    #[test]
+    fn pop_one_of_two_items_on_stack() {
+        let state = ::State::new(::JS_STRICT);
+        state.pushnumber(1.0);
+        state.pushnumber(2.0);
+        state.pop(1);
+        assert_eq!(state.gettop(), 1);
     }
 
     #[test]
