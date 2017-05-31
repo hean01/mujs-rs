@@ -1,3 +1,5 @@
+#[macro_use]
+extern crate bitflags;
 extern crate libc;
 
 
@@ -30,6 +32,11 @@ extern {
     fn js_getproperty(J: *const c_void, idx: c_int, name: *const c_char);
     fn js_setproperty(J: *const c_void, idx: c_int, name: *const c_char);
 
+    fn js_pushglobal(J: *const c_void);
+    fn js_getglobal(J: *const c_void, name: *const c_char);
+    fn js_setglobal(J: *const c_void, name: *const c_char);
+    fn js_defglobal(J: *const c_void, name: *const c_char, attrs: c_int);
+
     fn js_pushundefined(J: *const c_void);
     fn js_pushnull(J: *const c_void);
     fn js_pushboolean(J: *const c_void, v: c_int);
@@ -52,6 +59,14 @@ extern {
     fn js_tostring(J: *const c_void, idx: i32) -> *const c_char;
     fn js_toboolean(J: *const c_void, idx: i32) -> c_int;
     fn js_tonumber(J: *const c_void, idx: i32) -> c_double;
+}
+
+bitflags! {
+    pub struct PropertyAttributes: c_int {
+        const JS_READONLY = 1;
+        const JS_DONTENUM = 2;
+        const JS_DONTCONF = 4;
+    }
 }
 
 pub struct State {
@@ -194,6 +209,25 @@ impl State {
     pub fn getproperty(self: &State, idx: i32, name: &str) {
         let name_c_str = CString::new(name).unwrap();
         unsafe { js_getproperty(self.state, idx, name_c_str.as_ptr()) };
+    }
+
+    pub fn pushglobal(self: &State) {
+        unsafe { js_pushglobal(self.state) }
+    }
+
+    pub fn getglobal(self: &State, name: &str) {
+        let name_c_str = CString::new(name).unwrap();
+        unsafe { js_getglobal(self.state, name_c_str.as_ptr()) }
+    }
+
+    pub fn setglobal(self: &State, name: &str) {
+        let name_c_str = CString::new(name).unwrap();
+        unsafe { js_setglobal(self.state, name_c_str.as_ptr()) }
+    }
+
+    pub fn defglobal(self: &State, name: &str, attrs: PropertyAttributes) {
+        let name_c_str = CString::new(name).unwrap();
+        unsafe { js_defglobal(self.state, name_c_str.as_ptr(), attrs.bits) }
     }
 
     pub fn isdefined(self: &State, idx: i32) -> bool {
@@ -627,4 +661,74 @@ mod tests {
         assert_eq!(state.tonumber(1).unwrap(), 1.234);
     }
 
+    #[test]
+    fn setglobal_on_state() {
+        let state = ::State::new();
+        state.newobject();
+        state.pushnumber(1.234);
+        state.setproperty(-2, "age");
+        state.setglobal("me");
+
+        assert!(state.loadstring("myscript", "me").is_ok());
+        state.newobject();
+        assert!(state.call(0).is_ok());
+        state.getproperty(0, "age");
+        assert_eq!(state.tostring(1).unwrap(), "1.234");
+    }
+
+    #[test]
+    fn defglobal_on_state_readonly() {
+        let attrs = ::JS_READONLY;
+        let state = ::State::new();
+        state.newobject();
+        state.pushnumber(1.234);
+        state.setproperty(-2, "age");
+        state.defglobal("me", attrs);
+
+        state.newobject();
+        state.pushnumber(1.0);
+        state.setproperty(-2, "age");
+        state.setglobal("me");
+
+        assert!(state.loadstring("myscript", "me").is_ok());
+        state.newobject();
+        assert!(state.call(0).is_ok());
+
+        state.getproperty(0, "age");
+        assert_eq!(state.tonumber(1).unwrap(), 1.234);
+    }
+
+    #[test]
+    fn defglobal_on_state_is_writeable() {
+        let attrs = ::PropertyAttributes{bits: 0};
+        let state = ::State::new();
+        state.newobject();
+        state.pushnumber(1.234);
+        state.setproperty(-2, "age");
+        state.defglobal("me", attrs);
+
+        state.newobject();
+        state.pushnumber(1.0);
+        state.setproperty(-2, "age");
+        state.setglobal("me");
+
+        assert!(state.loadstring("myscript", "me").is_ok());
+        state.newobject();
+        assert!(state.call(0).is_ok());
+
+        state.getproperty(0, "age");
+        assert_eq!(state.tonumber(1).unwrap(), 1.0);
+    }
+
+    #[test]
+    fn getglobal_from_script() {
+        let state = ::State::new();
+        assert!(state.loadstring("myscript", "var me = {age: 1.234};").is_ok());
+        state.newobject();
+        assert!(state.call(0).is_ok());
+
+        state.getglobal("me");
+        state.getproperty(1, "age");
+        assert_eq!(state.tostring(2).unwrap(), "1.234");
+    }
 }
