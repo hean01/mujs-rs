@@ -69,6 +69,12 @@ bitflags! {
     }
 }
 
+bitflags! {
+    pub struct StateFlags: c_int {
+        const JS_STRICT = 1;
+    }
+}
+
 pub struct State {
     state: *const c_void,
     memctx: *const c_void,
@@ -76,7 +82,7 @@ pub struct State {
 
 impl State {
 
-    pub fn new() -> State {
+    pub fn new(flags: StateFlags) -> State {
         let mut js = State {
             state: std::ptr::null(),
             memctx: std::ptr::null(),
@@ -84,7 +90,7 @@ impl State {
 
         let js_ptr: *const State = &js;
         js.memctx = js_ptr as *const c_void;
-        js.state = unsafe { js_newstate(std::ptr::null(), js.memctx, 0) };
+        js.state = unsafe { js_newstate(std::ptr::null(), js.memctx, flags.bits) };
 
         js
     }
@@ -281,30 +287,30 @@ mod tests {
     use std;
     #[test]
     fn create_new_state() {
-        let _ = ::State::new();
+        let _ = ::State::new(::StateFlags{bits: 0});
     }
 
     #[test]
     fn call_garbage_collector() {
-        let state = ::State::new();
+        let state = ::State::new(::StateFlags{bits: 0});
         state.gc(false);
     }
 
     #[test]
     fn loadstring_with_broken_script() {
-        let state = ::State::new();
+        let state = ::State::new(::StateFlags{bits: 0});
         assert!(state.loadstring("myscript", "func broken() {").is_err());
     }
 
     #[test]
     fn loadstring_with_complete_script() {
-        let state = ::State::new();
+        let state = ::State::new(::StateFlags{bits: 0});
         assert!(state.loadstring("myscript", "func broken() { return Math.sin(3.2); };").is_err());
     }
 
     #[test]
     fn call_with_runtime_error() {
-        let state = ::State::new();
+        let state = ::State::new(::StateFlags{bits: 0});
         assert!(state.loadstring("myscript", "mystic.func();").is_ok());
         state.newobject();
         assert!(state.call(0).is_err());
@@ -312,7 +318,7 @@ mod tests {
 
     #[test]
     fn call_with_success() {
-        let state = ::State::new();
+        let state = ::State::new(::StateFlags{bits: 0});
         assert!(state.loadstring("myscript", "Math.sin(3.2);").is_ok());
         state.newobject();
         assert!(state.call(0).is_ok());
@@ -320,25 +326,25 @@ mod tests {
 
     #[test]
     fn dostring_with_success() {
-        let state = ::State::new();
+        let state = ::State::new(::StateFlags{bits: 0});
         assert!(state.dostring("Math.sin(3.2);").is_ok());
     }
 
     #[test]
     fn dostring_with_broken_script() {
-        let state = ::State::new();
+        let state = ::State::new(::StateFlags{bits: 0});
         assert!(state.dostring("func broken() {").is_err());
     }
 
     #[test]
     fn dostring_with_runtime_error() {
-        let state = ::State::new();
+        let state = ::State::new(::StateFlags{bits: 0});
         assert!(state.dostring("mystic.func();").is_err());
     }
 
     #[test]
     fn tostring_ascii() {
-        let state = ::State::new();
+        let state = ::State::new(::StateFlags{bits: 0});
         assert!(state.loadstring("myscript", "'Hello' + ' ' + 'World!';").is_ok());
         state.newobject();
         assert!(state.call(0).is_ok());
@@ -347,7 +353,7 @@ mod tests {
 
     #[test]
     fn tostring_utf8() {
-        let state = ::State::new();
+        let state = ::State::new(::StateFlags{bits: 0});
         assert!(state.loadstring("myscript", "'Hello' + ' ' + 'Båsse!';").is_ok());
         state.newobject();
         assert!(state.call(0).is_ok());
@@ -356,7 +362,7 @@ mod tests {
 
     #[test]
     fn tostring_with_number_on_stack() {
-        let state = ::State::new();
+        let state = ::State::new(::StateFlags{bits: 0});
         assert!(state.loadstring("myscript", "240.32;").is_ok());
         state.newobject();
         assert!(state.call(0).is_ok());
@@ -365,7 +371,7 @@ mod tests {
 
     #[test]
     fn toboolean_with_true_on_stack() {
-        let state = ::State::new();
+        let state = ::State::new(::StateFlags{bits: 0});
         assert!(state.loadstring("myscript", "true").is_ok());
         state.newobject();
         assert!(state.call(0).is_ok());
@@ -374,7 +380,7 @@ mod tests {
 
     #[test]
     fn toboolean_with_false_on_stack() {
-        let state = ::State::new();
+        let state = ::State::new(::StateFlags{bits: 0});
         assert!(state.loadstring("myscript", "false").is_ok());
         state.newobject();
         assert!(state.call(0).is_ok());
@@ -383,7 +389,7 @@ mod tests {
 
     #[test]
     fn toboolean_with_positive_number_on_stack() {
-        let state = ::State::new();
+        let state = ::State::new(::StateFlags{bits: 0});
         assert!(state.loadstring("myscript", "1").is_ok());
         state.newobject();
         assert!(state.call(0).is_ok());
@@ -392,7 +398,7 @@ mod tests {
 
     #[test]
     fn toboolean_with_zero_number_on_stack() {
-        let state = ::State::new();
+        let state = ::State::new(::StateFlags{bits: 0});
         assert!(state.loadstring("myscript", "0").is_ok());
         state.newobject();
         assert!(state.call(0).is_ok());
@@ -401,7 +407,7 @@ mod tests {
 
     #[test]
     fn toboolean_with_null_on_stack() {
-        let state = ::State::new();
+        let state = ::State::new(::StateFlags{bits: 0});
         assert!(state.loadstring("myscript", "null").is_ok());
         state.newobject();
         assert!(state.call(0).is_ok());
@@ -410,7 +416,7 @@ mod tests {
 
     #[test]
     fn toboolean_with_undefined_on_stack() {
-        let state = ::State::new();
+        let state = ::State::new(::StateFlags{bits: 0});
         assert!(state.loadstring("myscript", "undefined").is_ok());
         state.newobject();
         assert!(state.call(0).is_ok());
@@ -419,7 +425,7 @@ mod tests {
 
     #[test]
     fn tonumber_with_positive_number_on_stack() {
-        let state = ::State::new();
+        let state = ::State::new(::StateFlags{bits: 0});
         assert!(state.loadstring("myscript", "1.53278").is_ok());
         state.newobject();
         assert!(state.call(0).is_ok());
@@ -428,7 +434,7 @@ mod tests {
 
     #[test]
     fn tonumber_with_negative_number_on_stack() {
-        let state = ::State::new();
+        let state = ::State::new(::StateFlags{bits: 0});
         assert!(state.loadstring("myscript", "-1.53278;").is_ok());
         state.newobject();
         assert!(state.call(0).is_ok());
@@ -437,7 +443,7 @@ mod tests {
 
     #[test]
     fn tonumber_with_valid_string_on_stack() {
-        let state = ::State::new();
+        let state = ::State::new(::StateFlags{bits: 0});
         assert!(state.loadstring("myscript", "'1.53278'").is_ok());
         state.newobject();
         assert!(state.call(0).is_ok());
@@ -446,7 +452,7 @@ mod tests {
 
     #[test]
     fn tonumber_with_invalid_string_on_stack() {
-        let state = ::State::new();
+        let state = ::State::new(::StateFlags{bits: 0});
         assert!(state.loadstring("myscript", "'hello world'").is_ok());
         state.newobject();
         assert!(state.call(0).is_ok());
@@ -455,140 +461,140 @@ mod tests {
 
     #[test]
     fn pushundefined_verify_as_string() {
-        let state = ::State::new();
+        let state = ::State::new(::StateFlags{bits: 0});
         state.pushundefined();
         assert_eq!(state.tostring(0).ok().unwrap(), "undefined");
      }
 
     #[test]
     fn pushnull_verify_as_string() {
-        let state = ::State::new();
+        let state = ::State::new(::StateFlags{bits: 0});
         state.pushnull();
         assert_eq!(state.tostring(0).ok().unwrap(), "null");
     }
 
     #[test]
     fn pushboolean_verify_as_string() {
-        let state = ::State::new();
+        let state = ::State::new(::StateFlags{bits: 0});
         state.pushboolean(true);
         assert_eq!(state.tostring(0).ok().unwrap(), "true");
     }
 
     #[test]
     fn pushnumber_verify_as_string() {
-        let state = ::State::new();
+        let state = ::State::new(::StateFlags{bits: 0});
         state.pushnumber(1.234);
         assert_eq!(state.tostring(0).ok().unwrap(), "1.234");
     }
 
     #[test]
     fn pushstring_ascii() {
-        let state = :: State::new();
+        let state = :: State::new(::StateFlags{bits: 0});
         state.pushstring("Hello World!");
         assert_eq!(state.tostring(0).ok().unwrap(), "Hello World!");
     }
 
     #[test]
     fn pushstring_utf8() {
-        let state = :: State::new();
+        let state = :: State::new(::StateFlags{bits: 0});
         state.pushstring("Hello Båsse!");
         assert_eq!(state.tostring(0).ok().unwrap(), "Hello Båsse!");
     }
 
     #[test]
     fn newerror_verify_as_string() {
-        let state = ::State::new();
+        let state = ::State::new(::StateFlags{bits: 0});
         state.newerror("This is an error");
         assert_eq!(state.tostring(0).ok().unwrap(), "Error: This is an error");
     }
 
     #[test]
     fn newevalerror_verify_as_string() {
-        let state = ::State::new();
+        let state = ::State::new(::StateFlags{bits: 0});
         state.newevalerror("This is an error");
         assert_eq!(state.tostring(0).ok().unwrap(), "EvalError: This is an error");
     }
 
     #[test]
     fn newrangeerror_verify_as_string() {
-        let state = ::State::new();
+        let state = ::State::new(::StateFlags{bits: 0});
         state.newrangeerror("This is an error");
         assert_eq!(state.tostring(0).ok().unwrap(), "RangeError: This is an error");
     }
 
     #[test]
     fn newreferenceerror_verify_as_string() {
-        let state = ::State::new();
+        let state = ::State::new(::StateFlags{bits: 0});
         state.newreferenceerror("This is an error");
         assert_eq!(state.tostring(0).ok().unwrap(), "ReferenceError: This is an error");
     }
 
     #[test]
     fn newsyntaxerror_verify_as_string() {
-        let state = ::State::new();
+        let state = ::State::new(::StateFlags{bits: 0});
         state.newsyntaxerror("This is an error");
         assert_eq!(state.tostring(0).ok().unwrap(), "SyntaxError: This is an error");
     }
 
     #[test]
     fn newtypeerror_verify_as_string() {
-        let state = ::State::new();
+        let state = ::State::new(::StateFlags{bits: 0});
         state.newtypeerror("This is an error");
         assert_eq!(state.tostring(0).ok().unwrap(), "TypeError: This is an error");
     }
 
     #[test]
     fn newurierror_verify_as_string() {
-        let state = ::State::new();
+        let state = ::State::new(::StateFlags{bits: 0});
         state.newurierror("This is an error");
         assert_eq!(state.tostring(0).ok().unwrap(), "URIError: This is an error");
     }
 
     #[test]
     fn isdefined_on_undefined_is_false() {
-        let state = ::State::new();
+        let state = ::State::new(::StateFlags{bits: 0});
         state.pushundefined();
         assert_eq!(state.isdefined(0), false);
     }
 
     #[test]
     fn isdefined_on_number_is_true() {
-        let state = ::State::new();
+        let state = ::State::new(::StateFlags{bits: 0});
         state.pushnumber(1.234);
         assert_eq!(state.isdefined(0), true);
     }
 
     #[test]
     fn isundefined_on_undefined_is_true() {
-        let state = ::State::new();
+        let state = ::State::new(::StateFlags{bits: 0});
         state.pushundefined();
         assert_eq!(state.isundefined(0), true);
     }
 
     #[test]
     fn isundefined_on_number_is_false() {
-        let state = ::State::new();
+        let state = ::State::new(::StateFlags{bits: 0});
         state.pushnumber(1.234);
         assert_eq!(state.isundefined(0), false);
     }
 
     #[test]
     fn isobject_on_object_is_true() {
-        let state = ::State::new();
+        let state = ::State::new(::StateFlags{bits: 0});
         state.newobject();
         assert_eq!(state.isobject(0), true);
     }
 
     #[test]
     fn isobject_on_number_is_false() {
-        let state = ::State::new();
+        let state = ::State::new(::StateFlags{bits: 0});
         state.pushnumber(1.234);
         assert_eq!(state.isobject(0), false);
     }
 
     #[test]
     fn hasproperty_on_object_with_existing_property() {
-        let state = ::State::new();
+        let state = ::State::new(::StateFlags{bits: 0});
         assert!(state.loadstring("myscript", "var person = {name: \"Tester\", age: 32}; person").is_ok());
         state.newobject();
         assert!(state.call(0).is_ok());
@@ -597,7 +603,7 @@ mod tests {
 
     #[test]
     fn hasproperty_on_object_with_non_existing_property() {
-        let state = ::State::new();
+        let state = ::State::new(::StateFlags{bits: 0});
         assert!(state.loadstring("myscript", "var person = {name: \"Tester\", age: 32}; person").is_ok());
         state.newobject();
         assert!(state.call(0).is_ok());
@@ -606,7 +612,7 @@ mod tests {
 
     #[test]
     fn getproperty_on_object_with_existing_property() {
-        let state = ::State::new();
+        let state = ::State::new(::StateFlags{bits: 0});
         assert!(state.loadstring("myscript", "var person = {name: \"Tester\", age: 32}; person").is_ok());
         state.newobject();
         assert!(state.call(0).is_ok());
@@ -616,7 +622,7 @@ mod tests {
 
     #[test]
     fn getproperty_on_object_with_non_existing_property() {
-        let state = ::State::new();
+        let state = ::State::new(::StateFlags{bits: 0});
         assert!(state.loadstring("myscript", "var person = {name: \"Tester\", age: 32}; person").is_ok());
         state.newobject();
         assert!(state.call(0).is_ok());
@@ -626,7 +632,7 @@ mod tests {
 
     #[test]
     fn setproperty_on_object_as_number_value() {
-        let state = ::State::new();
+        let state = ::State::new(::StateFlags{bits: 0});
         assert!(state.loadstring("myscript", "var person = {name: \"Tester\", age: 32}; person").is_ok());
         state.newobject();
         assert!(state.call(0).is_ok());
@@ -638,7 +644,7 @@ mod tests {
 
     #[test]
     fn setproperty_on_object_changing_to_number_value() {
-        let state = ::State::new();
+        let state = ::State::new(::StateFlags{bits: 0});
         assert!(state.loadstring("myscript", "var person = {name: \"Tester\", age: 32}; person").is_ok());
         state.newobject();
         assert!(state.call(0).is_ok());
@@ -651,7 +657,7 @@ mod tests {
 
     #[test]
     fn setproperty_on_object_non_existing_property() {
-        let state = ::State::new();
+        let state = ::State::new(::StateFlags{bits: 0});
         assert!(state.loadstring("myscript", "var person = {name: \"Tester\", age: 32}; person").is_ok());
         state.newobject();
         assert!(state.call(0).is_ok());
@@ -663,7 +669,7 @@ mod tests {
 
     #[test]
     fn setglobal_on_state() {
-        let state = ::State::new();
+        let state = ::State::new(::StateFlags{bits: 0});
         state.newobject();
         state.pushnumber(1.234);
         state.setproperty(-2, "age");
@@ -679,7 +685,7 @@ mod tests {
     #[test]
     fn defglobal_on_state_readonly() {
         let attrs = ::JS_READONLY;
-        let state = ::State::new();
+        let state = ::State::new(::StateFlags{bits: 0});
         state.newobject();
         state.pushnumber(1.234);
         state.setproperty(-2, "age");
@@ -701,7 +707,7 @@ mod tests {
     #[test]
     fn defglobal_on_state_is_writeable() {
         let attrs = ::PropertyAttributes{bits: 0};
-        let state = ::State::new();
+        let state = ::State::new(::StateFlags{bits: 0});
         state.newobject();
         state.pushnumber(1.234);
         state.setproperty(-2, "age");
@@ -722,7 +728,7 @@ mod tests {
 
     #[test]
     fn getglobal_from_script() {
-        let state = ::State::new();
+        let state = ::State::new(::StateFlags{bits: 0});
         assert!(state.loadstring("myscript", "var me = {age: 1.234};").is_ok());
         state.newobject();
         assert!(state.call(0).is_ok());

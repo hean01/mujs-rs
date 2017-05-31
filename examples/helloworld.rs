@@ -1,7 +1,7 @@
 extern crate mujs;
 
 pub fn main() {
-    let state = mujs::State::new();
+    let state = mujs::State::new(mujs::JS_STRICT);
     assert!(state.loadstring("myscript", "'hello' + ' ' + 'world';").is_ok());
     state.newobject();
 
