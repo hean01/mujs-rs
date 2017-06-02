@@ -219,7 +219,11 @@ impl State {
         let source_c_str = CString::new(source).unwrap();
         match unsafe {js_dostring(self.state, source_c_str.as_ptr()) } {
             0 => Ok(()),
-            _ => Err("Failed to run script".to_string())
+            _ => {
+                let err = self.tostring(-1);
+                assert!(err.is_ok());
+                Err(err.ok().unwrap())
+            }
         }
     }
 
