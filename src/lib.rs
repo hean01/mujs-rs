@@ -491,6 +491,20 @@ impl State {
     }
 
     /// Test if object on stack has named property
+    /// # Examples
+    ///
+    /// ```
+    /// use mujs;
+    ///
+    /// let state = mujs::State::new(mujs::JS_STRICT);
+    /// state.newobject();
+    /// state.pushnumber(1.234);
+    /// state.setproperty(0, "value");
+    ///
+    /// if state.hasproperty(0, "value") {
+    ///   println!("Value: {:?}", state.tostring(1).unwrap());
+    /// }
+    ///
     pub fn hasproperty(self: &State, idx: i32, name: &str) -> bool {
         let name_c_str = CString::new(name).unwrap();
         match unsafe { js_hasproperty(self.state, idx, name_c_str.as_ptr()) } {
