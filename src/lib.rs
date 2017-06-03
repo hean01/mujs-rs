@@ -40,6 +40,7 @@ extern {
     fn js_gc(J: *const c_void, report: c_int);
     fn js_ploadstring(J: *const c_void, filename: *const c_char, source: *const c_char) -> c_int;
     fn js_pcall(J: *const c_void, n: c_int) -> c_int;
+    fn js_pconstruct(J: *const c_void, n: c_int) -> c_int;
     fn js_call(J: *const c_void, n: c_int) -> c_int;
     fn js_dostring(J: *const c_void, source: *const c_char) -> c_int;
 
@@ -221,6 +222,50 @@ impl State {
 
     pub fn call(self: &State, n: i32) -> Result<(), String> {
         match unsafe { js_pcall(self.state, n) } {
+            0 => Ok(()),
+            _ => {
+                let err = self.tostring(-1);
+                assert!(err.is_ok());
+                Err(err.ok().unwrap())
+            }
+        }
+    }
+
+    /// 'new' expression in Javascript.
+    ///
+    /// This is similar to State::call(), but without pushing a this
+    /// value.
+    ///
+    /// 1. push the constructure function to call onto the strack
+    /// 2. push the arguments to the constructor function in order
+    /// 3. finallt, call construct() with the number of arguments
+    ///    pushed on the stack
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use mujs;
+    ///
+    /// let state = mujs::State::new(mujs::JS_STRICT);
+    ///
+    /// state.dostring("function Car(make, model, year) { \
+    ///                                this.make = make; \
+    ///                                this.model = model; \
+    ///                                this.year = year; \
+    ///                              }").unwrap();
+    ///
+    /// state.getglobal("Car");
+    /// state.pushstring("Volvo");
+    /// state.pushstring("V50");
+    /// state.pushnumber(2010.0);
+    /// assert!(state.construct(3).is_ok());
+    ///
+    /// state.getproperty(0, "model");
+    /// println!("Model: {:?}", state.tostring(1).unwrap());
+    ///
+    /// ```
+    pub fn construct(self: &State, n: i32) -> Result<(), String> {
+        match unsafe { js_pconstruct(self.state, n) } {
             0 => Ok(()),
             _ => {
                 let err = self.tostring(-1);
@@ -527,6 +572,17 @@ mod tests {
         assert!(state.loadstring("myscript", "Math.sin(3.2);").is_ok());
         state.newobject();
         assert!(state.call(0).is_ok());
+    }
+
+    #[test]
+    fn construct_with_success() {
+        let state = ::State::new(::StateFlags{bits: 0});
+        assert!(state.dostring("function func(a) { this.a = a; }").is_ok());
+        state.getglobal("func");
+        state.pushnumber(1.1234);
+        assert!(state.construct(1).is_ok());
+        state.getproperty(0,"a");
+        assert_eq!(state.tonumber(1).unwrap(), 1.1234);
     }
 
     #[test]
