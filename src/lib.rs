@@ -270,6 +270,62 @@ impl State {
         unsafe { js_newurierror(self.state, message.as_ptr() as *const c_char) }
     }
 
+    /// Throws an Error in the executing environment
+    pub fn error(self: &State, message: &str) {
+        unsafe {
+            js_newerror(self.state, message.as_ptr() as *const c_char);
+            js_throw(self.state);
+        };
+    }
+
+    /// Throws an EvalError in the executing environment
+    pub fn evalerror(self: &State, message: &str) {
+        unsafe {
+            js_newevalerror(self.state, message.as_ptr() as *const c_char);
+            js_throw(self.state);
+        }
+    }
+
+    /// Throws an RangeError in the executing environment
+    pub fn rangeerror(self: &State, message: &str) {
+        unsafe {
+            js_newrangeerror(self.state, message.as_ptr() as *const c_char);
+            js_throw(self.state);
+        }
+    }
+
+    /// Throws an ReferenceError in the executing environment
+    pub fn referenceerror(self: &State, message: &str) {
+        unsafe {
+            js_newreferenceerror(self.state, message.as_ptr() as *const c_char);
+            js_throw(self.state);
+        }
+    }
+
+    /// Throws an SyntaxError in the executing environment
+    pub fn syntaxerror(self: &State, message: &str) {
+        unsafe {
+            js_newsyntaxerror(self.state, message.as_ptr() as *const c_char);
+            js_throw(self.state);
+        }
+    }
+
+    /// Throws an TypeError in the executing environment
+    pub fn typeerror(self: &State, message: &str) {
+        unsafe {
+            js_newtypeerror(self.state, message.as_ptr() as *const c_char);
+            js_throw(self.state);
+        }
+    }
+
+    /// Throws an URIError in the executing environment
+    pub fn urierror(self: &State, message: &str) {
+        unsafe {
+            js_newurierror(self.state, message.as_ptr() as *const c_char);
+            js_throw(self.state);
+        }
+    }
+
     pub fn gettop(self: &State) -> i32 {
         unsafe {  js_gettop(self.state) }
     }
@@ -677,6 +733,54 @@ mod tests {
     }
 
     #[test]
+    #[should_panic(expect = "Error: This is an error")]
+    fn error_should_panic() {
+        let state = ::State::new(::StateFlags{bits: 0});
+        state.error("This is an error");
+    }
+
+    #[test]
+    #[should_panic(expect = "EvalError: This is an error")]
+    fn evalerror_should_panic() {
+        let state = ::State::new(::StateFlags{bits: 0});
+        state.evalerror("This is an error");
+    }
+
+    #[test]
+    #[should_panic(expect = "RangeError: This is an error")]
+    fn rangeerror_should_panic() {
+        let state = ::State::new(::StateFlags{bits: 0});
+        state.rangeerror("This is an error");
+    }
+
+    #[test]
+    #[should_panic(expect = "ReferenceError: This is an error")]
+    fn referenceerror_should_panic() {
+        let state = ::State::new(::StateFlags{bits: 0});
+        state.referenceerror("This is an error");
+    }
+
+    #[test]
+    #[should_panic(expect = "SyntaxError: This is an error")]
+    fn syntaxerror_should_panic() {
+        let state = ::State::new(::StateFlags{bits: 0});
+        state.syntaxerror("This is an error");
+    }
+
+    #[test]
+    #[should_panic(expect = "TypeError: This is an error")]
+    fn typeerror_should_panic() {
+        let state = ::State::new(::StateFlags{bits: 0});
+        state.typeerror("This is an error");
+    }
+
+    #[test]
+    #[should_panic(expect = "URIError: This is an error")]
+    fn urierror_should_panic() {
+        let state = ::State::new(::StateFlags{bits: 0});
+        state.urierror("This is an error");
+    }
+
     fn gettop_with_empty_stack() {
         let state = ::State::new(::JS_STRICT);
         assert_eq!(state.gettop(), 0);
