@@ -36,9 +36,11 @@ use libc::{
 extern {
     fn js_newstate(alloc: *const c_void, context: *const c_void, flags: c_int) -> *const c_void;
     fn js_freestate(J: *const c_void);
+    fn js_atpanic(J: *const c_void, panic: Option<extern fn(J: *const c_void)>) -> *const c_void;
     fn js_gc(J: *const c_void, report: c_int);
     fn js_ploadstring(J: *const c_void, filename: *const c_char, source: *const c_char) -> c_int;
     fn js_pcall(J: *const c_void, n: c_int) -> c_int;
+    fn js_call(J: *const c_void, n: c_int) -> c_int;
     fn js_dostring(J: *const c_void, source: *const c_char) -> c_int;
 
     fn js_newobject(J: *const c_void);
@@ -141,7 +143,16 @@ impl State {
         js.memctx = js_ptr as *const c_void;
         js.state = unsafe { js_newstate(std::ptr::null(), js.memctx, flags.bits) };
 
+        unsafe { js_atpanic(js.state, Some(State::_panic)) };
+
         js
+    }
+
+    extern fn _panic(J: *const c_void) {
+        let top = unsafe { js_gettop(J) };
+        let res_c_str = unsafe { js_tostring(J, top - 1) };
+        let err = unsafe { CStr::from_ptr(res_c_str).to_string_lossy().into_owned() };
+        panic!("{:?}", err);
     }
 
     /// Run garbage collector.
@@ -392,6 +403,17 @@ mod tests {
     #[test]
     fn create_new_state() {
         let _ = ::State::new(::StateFlags{bits: 0});
+    }
+
+    #[test]
+    #[should_panic]
+    fn panic_are_handled() {
+        let state = ::State::new(::StateFlags{bits: 0});
+        unsafe {
+            ::js_pushnumber(state.state, 1.234);
+            ::js_pushnull(state.state);
+            ::js_call(state.state, 0);
+        }
     }
 
     #[test]
