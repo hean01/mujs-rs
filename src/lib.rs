@@ -751,49 +751,49 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expect = "Error: This is an error")]
+    #[should_panic(expected = "Error: This is an error")]
     fn error_should_panic() {
         let state = ::State::new(::StateFlags{bits: 0});
         state.error("This is an error");
     }
 
     #[test]
-    #[should_panic(expect = "EvalError: This is an error")]
+    #[should_panic(expected = "EvalError: This is an error")]
     fn evalerror_should_panic() {
         let state = ::State::new(::StateFlags{bits: 0});
         state.evalerror("This is an error");
     }
 
     #[test]
-    #[should_panic(expect = "RangeError: This is an error")]
+    #[should_panic(expected = "RangeError: This is an error")]
     fn rangeerror_should_panic() {
         let state = ::State::new(::StateFlags{bits: 0});
         state.rangeerror("This is an error");
     }
 
     #[test]
-    #[should_panic(expect = "ReferenceError: This is an error")]
+    #[should_panic(expected = "ReferenceError: This is an error")]
     fn referenceerror_should_panic() {
         let state = ::State::new(::StateFlags{bits: 0});
         state.referenceerror("This is an error");
     }
 
     #[test]
-    #[should_panic(expect = "SyntaxError: This is an error")]
+    #[should_panic(expected = "SyntaxError: This is an error")]
     fn syntaxerror_should_panic() {
         let state = ::State::new(::StateFlags{bits: 0});
         state.syntaxerror("This is an error");
     }
 
     #[test]
-    #[should_panic(expect = "TypeError: This is an error")]
+    #[should_panic(expected = "TypeError: This is an error")]
     fn typeerror_should_panic() {
         let state = ::State::new(::StateFlags{bits: 0});
         state.typeerror("This is an error");
     }
 
     #[test]
-    #[should_panic(expect = "URIError: This is an error")]
+    #[should_panic(expected = "URIError: This is an error")]
     fn urierror_should_panic() {
         let state = ::State::new(::StateFlags{bits: 0});
         state.urierror("This is an error");
