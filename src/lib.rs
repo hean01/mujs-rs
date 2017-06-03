@@ -33,6 +33,19 @@ use libc::{
     c_char
 };
 
+trait ToCString {
+    fn to_cstr(self: &Self) -> Result<CString, std::ffi::NulError>;
+}
+
+impl ToCString for str {
+    fn to_cstr(self: &str) -> Result<CString, std::ffi::NulError> {
+        match CString::new(self) {
+            Err(e) => Err(e),
+            Ok(cstr) => Ok(cstr)
+        }
+    }
+}
+
 extern {
     fn js_newstate(alloc: *const c_void, context: *const c_void, flags: c_int) -> *const c_void;
     fn js_freestate(J: *const c_void);
@@ -208,9 +221,9 @@ impl State {
     /// ```
     ///
     pub fn loadstring(self: &State, filename: &str, source: &str) -> Result<(), String> {
-        let name_c_str = CString::new(filename).unwrap();
-        let source_c_str = CString::new(source).unwrap();
-        match unsafe { js_ploadstring(self.state, name_c_str.as_ptr(), source_c_str.as_ptr()) } {
+        match unsafe { js_ploadstring(self.state, filename.to_cstr().unwrap().as_ptr(),
+                                      source.to_cstr().unwrap().as_ptr()) }
+        {
             0 => Ok(()),
             _ => {
                 let err = self.tostring(-1);
@@ -307,8 +320,7 @@ impl State {
     }
 
     pub fn dostring(self: &State, source: &str) -> Result<(), String> {
-        let source_c_str = CString::new(source).unwrap();
-        match unsafe {js_dostring(self.state, source_c_str.as_ptr()) } {
+        match unsafe {js_dostring(self.state, source.to_cstr().unwrap().as_ptr()) } {
             0 => Ok(()),
             _ => {
                 let err = self.tostring(-1);
@@ -339,43 +351,43 @@ impl State {
 
     ///  Push a Error onto the stack
     pub fn newerror(self: &State, message: &str) {
-        unsafe { js_newerror(self.state, message.as_ptr() as *const c_char) };
+        unsafe { js_newerror(self.state, message.to_cstr().unwrap().as_ptr()) };
     }
 
     /// Push an EvaluationError onto the stack
     pub fn newevalerror(self: &State, message: &str) {
-        unsafe { js_newevalerror(self.state, message.as_ptr() as *const c_char) }
+        unsafe { js_newevalerror(self.state, message.to_cstr().unwrap().as_ptr()) }
     }
 
     /// Push a RangeError onto the stack
     pub fn newrangeerror(self: &State, message: &str) {
-        unsafe { js_newrangeerror(self.state, message.as_ptr() as *const c_char) }
+        unsafe { js_newrangeerror(self.state, message.to_cstr().unwrap().as_ptr()) }
     }
 
     /// Push a ReferenceError onto the stack
     pub fn newreferenceerror(self: &State, message: &str) {
-        unsafe { js_newreferenceerror(self.state, message.as_ptr() as *const c_char) }
+        unsafe { js_newreferenceerror(self.state, message.to_cstr().unwrap().as_ptr()) }
     }
 
     /// Push a SyntaxError onto the stack
     pub fn newsyntaxerror(self: &State, message: &str) {
-        unsafe { js_newsyntaxerror(self.state, message.as_ptr() as *const c_char) }
+        unsafe { js_newsyntaxerror(self.state, message.to_cstr().unwrap().as_ptr()) }
     }
 
     /// Push a TypeError onto the stack
     pub fn newtypeerror(self: &State, message: &str) {
-        unsafe { js_newtypeerror(self.state, message.as_ptr() as *const c_char) }
+        unsafe { js_newtypeerror(self.state, message.to_cstr().unwrap().as_ptr()) }
     }
 
     /// Push a URIError onto the stack
     pub fn newurierror(self: &State, message: &str) {
-        unsafe { js_newurierror(self.state, message.as_ptr() as *const c_char) }
+        unsafe { js_newurierror(self.state, message.to_cstr().unwrap().as_ptr()) }
     }
 
     /// Throws an Error in the executing environment
     pub fn error(self: &State, message: &str) {
         unsafe {
-            js_newerror(self.state, message.as_ptr() as *const c_char);
+            js_newerror(self.state, message.to_cstr().unwrap().as_ptr());
             js_throw(self.state);
         };
     }
@@ -383,7 +395,7 @@ impl State {
     /// Throws an EvalError in the executing environment
     pub fn evalerror(self: &State, message: &str) {
         unsafe {
-            js_newevalerror(self.state, message.as_ptr() as *const c_char);
+            js_newevalerror(self.state, message.to_cstr().unwrap().as_ptr());
             js_throw(self.state);
         }
     }
@@ -391,7 +403,7 @@ impl State {
     /// Throws an RangeError in the executing environment
     pub fn rangeerror(self: &State, message: &str) {
         unsafe {
-            js_newrangeerror(self.state, message.as_ptr() as *const c_char);
+            js_newrangeerror(self.state, message.to_cstr().unwrap().as_ptr());
             js_throw(self.state);
         }
     }
@@ -399,7 +411,7 @@ impl State {
     /// Throws an ReferenceError in the executing environment
     pub fn referenceerror(self: &State, message: &str) {
         unsafe {
-            js_newreferenceerror(self.state, message.as_ptr() as *const c_char);
+            js_newreferenceerror(self.state, message.to_cstr().unwrap().as_ptr());
             js_throw(self.state);
         }
     }
@@ -407,7 +419,7 @@ impl State {
     /// Throws an SyntaxError in the executing environment
     pub fn syntaxerror(self: &State, message: &str) {
         unsafe {
-            js_newsyntaxerror(self.state, message.as_ptr() as *const c_char);
+            js_newsyntaxerror(self.state, message.to_cstr().unwrap().as_ptr());
             js_throw(self.state);
         }
     }
@@ -415,7 +427,7 @@ impl State {
     /// Throws an TypeError in the executing environment
     pub fn typeerror(self: &State, message: &str) {
         unsafe {
-            js_newtypeerror(self.state, message.as_ptr() as *const c_char);
+            js_newtypeerror(self.state, message.to_cstr().unwrap().as_ptr());
             js_throw(self.state);
         }
     }
@@ -423,7 +435,7 @@ impl State {
     /// Throws an URIError in the executing environment
     pub fn urierror(self: &State, message: &str) {
         unsafe {
-            js_newurierror(self.state, message.as_ptr() as *const c_char);
+            js_newurierror(self.state, message.to_cstr().unwrap().as_ptr());
             js_throw(self.state);
         }
     }
@@ -486,11 +498,11 @@ impl State {
 
     /// Push string primitive value onto the stack
     pub fn pushstring(self: &State, value: &str) {
-        let c_str = CString::new(value).unwrap();
-        unsafe { js_pushstring(self.state, c_str.as_ptr()) }
+        unsafe { js_pushstring(self.state, value.to_cstr().unwrap().as_ptr()) }
     }
 
     /// Test if object on stack has named property
+    ///
     /// # Examples
     ///
     /// ```
@@ -506,8 +518,7 @@ impl State {
     /// }
     ///
     pub fn hasproperty(self: &State, idx: i32, name: &str) -> bool {
-        let name_c_str = CString::new(name).unwrap();
-        match unsafe { js_hasproperty(self.state, idx, name_c_str.as_ptr()) } {
+        match unsafe { js_hasproperty(self.state, idx, name.to_cstr().unwrap().as_ptr()) } {
             0 => false,
             _ => true
         }
@@ -515,14 +526,12 @@ impl State {
 
     /// Pop the value on top of stack and assigns it to named property
     pub fn setproperty(self: &State, idx: i32, name: &str) {
-        let name_c_str = CString::new(name).unwrap();
-        unsafe { js_setproperty(self.state, idx, name_c_str.as_ptr()) };
+        unsafe { js_setproperty(self.state, idx, name.to_cstr().unwrap().as_ptr()) };
     }
 
     /// Push the value of named property of object on top of stack
     pub fn getproperty(self: &State, idx: i32, name: &str) {
-        let name_c_str = CString::new(name).unwrap();
-        unsafe { js_getproperty(self.state, idx, name_c_str.as_ptr()) };
+        unsafe { js_getproperty(self.state, idx, name.to_cstr().unwrap().as_ptr()) };
     }
 
     /// Define named property of object
@@ -540,8 +549,7 @@ impl State {
     ///
     /// ```
     pub fn defproperty(self: &State, idx: i32, name: &str, attrs: PropertyAttributes) {
-        let name_c_str = CString::new(name).unwrap();
-        unsafe { js_defproperty(self.state, idx, name_c_str.as_ptr(), attrs.bits) };
+        unsafe { js_defproperty(self.state, idx, name.to_cstr().unwrap().as_ptr(), attrs.bits) };
     }
 
     /// Define a getter and setter attribute og a property of object on stack
@@ -550,14 +558,12 @@ impl State {
     /// null instead of a function object if you want to leave any of
     /// the functions unset.
     pub fn defaccessor(self: &State, idx: i32, name: &str, attrs: PropertyAttributes) {
-        let name_c_str = CString::new(name).unwrap();
-        unsafe { js_defaccessor(self.state, idx, name_c_str.as_ptr(), attrs.bits) };
+        unsafe { js_defaccessor(self.state, idx, name.to_cstr().unwrap().as_ptr(), attrs.bits) };
     }
 
     /// Delete named property of object
     pub fn delproperty(self: &State, idx: i32, name: &str) {
-        let name_c_str = CString::new(name).unwrap();
-        unsafe { js_delproperty(self.state, idx, name_c_str.as_ptr()) };
+        unsafe { js_delproperty(self.state, idx, name.to_cstr().unwrap().as_ptr()) };
     }
 
     /// Push object representing the global environment record
@@ -567,20 +573,17 @@ impl State {
 
     /// Get named global variable
     pub fn getglobal(self: &State, name: &str) {
-        let name_c_str = CString::new(name).unwrap();
-        unsafe { js_getglobal(self.state, name_c_str.as_ptr()) }
+        unsafe { js_getglobal(self.state, name.to_cstr().unwrap().as_ptr()) }
     }
 
     /// Set named variable with object on top of stack
     pub fn setglobal(self: &State, name: &str) {
-        let name_c_str = CString::new(name).unwrap();
-        unsafe { js_setglobal(self.state, name_c_str.as_ptr()) }
+        unsafe { js_setglobal(self.state, name.to_cstr().unwrap().as_ptr()) }
     }
 
     /// Define named global variable
     pub fn defglobal(self: &State, name: &str, attrs: PropertyAttributes) {
-        let name_c_str = CString::new(name).unwrap();
-        unsafe { js_defglobal(self.state, name_c_str.as_ptr(), attrs.bits) }
+        unsafe { js_defglobal(self.state, name.to_cstr().unwrap().as_ptr(), attrs.bits) }
     }
 
     /// Test if item on stack is defined
