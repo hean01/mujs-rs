@@ -80,6 +80,7 @@ extern {
 
     fn js_gettop(J: *const c_void) -> c_int;
     fn js_pop(J: *const c_void, n: c_int);
+    fn js_copy(J: *const c_void, idx: c_int);
 
     fn js_tostring(J: *const c_void, idx: i32) -> *const c_char;
     fn js_toboolean(J: *const c_void, idx: i32) -> c_int;
@@ -335,6 +336,10 @@ impl State {
 
     pub fn pop(self: &State, n: i32) {
         unsafe { js_pop(self.state, n) }
+    }
+
+    pub fn copy(self: &State, idx: i32) {
+        unsafe { js_copy(self.state, idx) }
     }
 
     pub fn newobject(self: &State) {
@@ -845,6 +850,28 @@ mod tests {
         state.pushnumber(2.0);
         state.pop(1);
         assert_eq!(state.gettop(), 1);
+    }
+
+    #[test]
+    fn copy_one_item_on_stack() {
+        let state = ::State::new(::JS_STRICT);
+        state.pushnumber(1.2345);
+        state.copy(0);
+        assert_eq!(state.tonumber(0).unwrap(), 1.2345);
+        assert_eq!(state.tonumber(1).unwrap(), 1.2345);
+    }
+
+    #[test]
+    fn copy_of_item_copies_on_stack() {
+        let state = ::State::new(::JS_STRICT);
+        state.pushnumber(1.2345);
+        state.copy(0);
+        state.copy(1);
+        state.copy(2);
+        assert_eq!(state.tonumber(0).unwrap(), 1.2345);
+        assert_eq!(state.tonumber(1).unwrap(), 1.2345);
+        assert_eq!(state.tonumber(2).unwrap(), 1.2345);
+        assert_eq!(state.tonumber(3).unwrap(), 1.2345);
     }
 
     #[test]
