@@ -799,6 +799,7 @@ mod tests {
         state.urierror("This is an error");
     }
 
+    #[test]
     fn gettop_with_empty_stack() {
         let state = ::State::new(::JS_STRICT);
         assert_eq!(state.gettop(), 0);
