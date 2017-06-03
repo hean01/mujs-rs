@@ -50,6 +50,9 @@ extern {
     fn js_hasproperty(J: *const c_void, idx: c_int, name: *const c_char) -> c_int;
     fn js_getproperty(J: *const c_void, idx: c_int, name: *const c_char);
     fn js_setproperty(J: *const c_void, idx: c_int, name: *const c_char);
+    fn js_defproperty(J: *const c_void, idx: c_int, name: *const c_char, attrs: c_int);
+    fn js_defaccessor(J: *const c_void, idx: c_int, name: *const c_char, attrs: c_int);
+    fn js_delproperty(J: *const c_void, idx: c_int, name: *const c_char);
 
     fn js_pushglobal(J: *const c_void);
     fn js_getglobal(J: *const c_void, name: *const c_char);
@@ -386,6 +389,21 @@ impl State {
     pub fn getproperty(self: &State, idx: i32, name: &str) {
         let name_c_str = CString::new(name).unwrap();
         unsafe { js_getproperty(self.state, idx, name_c_str.as_ptr()) };
+    }
+
+    pub fn defproperty(self: &State, idx: i32, name: &str, attrs: PropertyAttributes) {
+        let name_c_str = CString::new(name).unwrap();
+        unsafe { js_defproperty(self.state, idx, name_c_str.as_ptr(), attrs.bits) };
+    }
+
+    pub fn defaccessor(self: &State, idx: i32, name: &str, attrs: PropertyAttributes) {
+        let name_c_str = CString::new(name).unwrap();
+        unsafe { js_defaccessor(self.state, idx, name_c_str.as_ptr(), attrs.bits) };
+    }
+
+    pub fn delproperty(self: &State, idx: i32, name: &str) {
+        let name_c_str = CString::new(name).unwrap();
+        unsafe { js_delproperty(self.state, idx, name_c_str.as_ptr()) };
     }
 
     pub fn pushglobal(self: &State) {
@@ -943,6 +961,67 @@ mod tests {
         state.setproperty(0, "phone");
         state.getproperty(0, "phone");
         assert_eq!(state.tonumber(1).unwrap(), 1.234);
+    }
+
+    #[test]
+    fn defproperty_read_only_on_object() {
+        let state = ::State::new(::StateFlags{bits: 0});
+        state.newobject();
+        state.pushnumber(1.234);
+        state.defproperty(0, "age", ::JS_READONLY);
+
+        state.pushnumber(1.0);
+        state.setproperty(0, "age");
+        state.getproperty(0, "age");
+        assert_eq!(state.tonumber(1).unwrap(), 1.234);
+    }
+
+    #[test]
+    fn defproperty_on_object() {
+        let state = ::State::new(::StateFlags{bits: 0});
+        state.newobject();
+        state.pushnumber(1.234);
+        state.defproperty(0, "age", ::PropertyAttributes{bits: 0});
+
+        state.pushnumber(1.0);
+        state.setproperty(0, "age");
+        state.getproperty(0, "age");
+        assert_eq!(state.tonumber(1).unwrap(), 1.0);
+    }
+
+    #[test]
+    fn delproperty_on_not_configurable_property() {
+        let state = ::State::new(::StateFlags{bits: 0});
+        let source = "var obj = {}; \
+                      Object.defineProperty(obj, 'func', { \
+                        value: function (a, b) { return a + b; },\
+                      }); obj";
+
+        assert!(state.loadstring("myscript", source).is_ok());
+        state.newobject();
+        assert!(state.call(0).is_ok());
+
+        state.delproperty(0, "func");
+        state.getproperty(0, "func");
+        assert_eq!(state.tostring(1).unwrap(), "function (a,b) { ... }");
+    }
+
+    #[test]
+    fn delproperty_on_configurable_property() {
+        let state = ::State::new(::StateFlags{bits: 0});
+        let source = "var obj = {}; \
+                      Object.defineProperty(obj, 'func', { \
+                        value: function (a, b) { return a + b; },\
+                        configurable: true
+                      }); obj";
+
+        assert!(state.loadstring("myscript", source).is_ok());
+        state.newobject();
+        assert!(state.call(0).is_ok());
+
+        state.delproperty(0, "func");
+        state.getproperty(0, "func");
+        assert_eq!(state.tostring(1).unwrap(), "undefined");
     }
 
     #[test]
