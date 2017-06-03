@@ -1,6 +1,8 @@
 //! # Rust MuJS bindings
 //!
-//! [MuJS](http://mujs.com) is a lightweight implementation of the Javascript language in a library.
+//! [MuJS](http://mujs.com) is a lightweight implementation of the
+//! Javascript language in a library. MuJS is licensed under AGPL and
+//! so is this rustc bindings.
 //!
 //! Its primary purpose and design is for embedding in other software
 //! to add scripting capability to those programs, but it can also be
@@ -30,8 +32,6 @@ use libc::{
     c_void,
     c_char
 };
-
-
 
 extern {
     fn js_newstate(alloc: *const c_void, context: *const c_void, flags: c_int) -> *const c_void;
@@ -220,6 +220,37 @@ impl State {
         }
     }
 
+    /// Call a function pushed on stack
+    ///
+    /// Pop the function, this value and all arguments then executes
+    /// the function. The return value is then pushed onto the stack.
+    ///
+    /// Follow these steps to perform a function call:
+    ///
+    /// 1. push the function to call onto the stack
+    ///
+    /// 2. push this value to be used by the function
+    ///
+    /// 3. push the arguments to the function in order
+    ///
+    /// 4. call State::call() with the numbers of arguments pushed
+    ///    onto the stack
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use mujs;
+    ///
+    /// let state = mujs::State::new(mujs::JS_STRICT);
+    ///
+    /// assert!(state.loadstring("myscript", "Math.sin(3.2);").is_ok());
+    /// state.newobject();
+    /// assert!(state.call(0).is_ok());
+    ///
+    /// println!("Sin(3.2) = {:?}", state.tonumber(0).unwrap());
+    ///
+    /// ```
+    ///
     pub fn call(self: &State, n: i32) -> Result<(), String> {
         match unsafe { js_pcall(self.state, n) } {
             0 => Ok(()),
@@ -231,7 +262,7 @@ impl State {
         }
     }
 
-    /// 'new' expression in Javascript.
+    /// Call constructor pushed on stack
     ///
     /// This is similar to State::call(), but without pushing a this
     /// value.
@@ -287,34 +318,56 @@ impl State {
         }
     }
 
+    /// Throws error on stack
+    ///
+    /// Pop the error object on the top of the stack and return
+    /// control flow to the most recent protected environment.
+    ///
+    /// # Examples
+    ///
+    /// ```rust,should_panic
+    /// use mujs;
+    ///
+    /// let state = mujs::State::new(mujs::JS_STRICT);
+    ///
+    /// state.newerror("Lets create an error");
+    /// state.throw();
+    /// ```
     pub fn throw(self: &State) {
         unsafe { js_throw(self.state) };
     }
 
+    ///  Push a Error onto the stack
     pub fn newerror(self: &State, message: &str) {
         unsafe { js_newerror(self.state, message.as_ptr() as *const c_char) };
     }
 
+    /// Push an EvaluationError onto the stack
     pub fn newevalerror(self: &State, message: &str) {
         unsafe { js_newevalerror(self.state, message.as_ptr() as *const c_char) }
     }
 
+    /// Push a RangeError onto the stack
     pub fn newrangeerror(self: &State, message: &str) {
         unsafe { js_newrangeerror(self.state, message.as_ptr() as *const c_char) }
     }
 
+    /// Push a ReferenceError onto the stack
     pub fn newreferenceerror(self: &State, message: &str) {
         unsafe { js_newreferenceerror(self.state, message.as_ptr() as *const c_char) }
     }
 
+    /// Push a SyntaxError onto the stack
     pub fn newsyntaxerror(self: &State, message: &str) {
         unsafe { js_newsyntaxerror(self.state, message.as_ptr() as *const c_char) }
     }
 
+    /// Push a TypeError onto the stack
     pub fn newtypeerror(self: &State, message: &str) {
         unsafe { js_newtypeerror(self.state, message.as_ptr() as *const c_char) }
     }
 
+    /// Push a URIError onto the stack
     pub fn newurierror(self: &State, message: &str) {
         unsafe { js_newurierror(self.state, message.as_ptr() as *const c_char) }
     }
@@ -375,22 +428,32 @@ impl State {
         }
     }
 
+    /// Get top index of stack
     pub fn gettop(self: &State) -> i32 {
         unsafe {  js_gettop(self.state) }
     }
 
+    /// Pop items off the stack
+    ///
+    /// # Arguments
+    ///
+    /// * `n` - Number of items to pop off the stack
+    ///
     pub fn pop(self: &State, n: i32) {
         unsafe { js_pop(self.state, n) }
     }
 
+    /// Copy stack item and push on top of stack
     pub fn copy(self: &State, idx: i32) {
         unsafe { js_copy(self.state, idx) }
     }
 
+    /// Create a new object and push onto stack
     pub fn newobject(self: &State) {
         unsafe { js_newobject(self.state) };
     }
 
+    /// Test if stack item is an object
     pub fn isobject(self: &State, idx: i32) -> bool {
         match unsafe { js_isobject(self.state, idx) } {
             0 => false,
@@ -398,14 +461,17 @@ impl State {
         }
     }
 
+    /// Push undefined primitive value onto the stack
     pub fn pushundefined(self: &State) {
         unsafe { js_pushundefined(self.state) };
     }
 
+    /// Push null primitive value onto the stack
     pub fn pushnull(self: &State) {
         unsafe { js_pushnull(self.state) };
     }
 
+    /// Push boolean primitive value onto the stack
     pub fn pushboolean(self: &State, value: bool) {
         match value {
             false => unsafe { js_pushboolean(self.state, 0) },
@@ -413,16 +479,18 @@ impl State {
         }
     }
 
-
+    /// Push number primitive value onto the stack
     pub fn pushnumber(self: &State, value: f64) {
         unsafe { js_pushnumber(self.state, value) }
     }
 
+    /// Push string primitive value onto the stack
     pub fn pushstring(self: &State, value: &str) {
         let c_str = CString::new(value).unwrap();
         unsafe { js_pushstring(self.state, c_str.as_ptr()) }
     }
 
+    /// Test if object on stack has named property
     pub fn hasproperty(self: &State, idx: i32, name: &str) -> bool {
         let name_c_str = CString::new(name).unwrap();
         match unsafe { js_hasproperty(self.state, idx, name_c_str.as_ptr()) } {
@@ -431,50 +499,77 @@ impl State {
         }
     }
 
+    /// Pop the value on top of stack and assigns it to named property
     pub fn setproperty(self: &State, idx: i32, name: &str) {
         let name_c_str = CString::new(name).unwrap();
         unsafe { js_setproperty(self.state, idx, name_c_str.as_ptr()) };
     }
 
+    /// Push the value of named property of object on top of stack
     pub fn getproperty(self: &State, idx: i32, name: &str) {
         let name_c_str = CString::new(name).unwrap();
         unsafe { js_getproperty(self.state, idx, name_c_str.as_ptr()) };
     }
 
+    /// Define named property of object
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use mujs;
+    ///
+    /// let state = mujs::State::new(mujs::JS_STRICT);
+    ///
+    /// state.newobject();
+    /// state.pushstring("A value");
+    /// state.defproperty(0, "value", mujs::JS_DONTCONF);
+    ///
+    /// ```
     pub fn defproperty(self: &State, idx: i32, name: &str, attrs: PropertyAttributes) {
         let name_c_str = CString::new(name).unwrap();
         unsafe { js_defproperty(self.state, idx, name_c_str.as_ptr(), attrs.bits) };
     }
 
+    /// Define a getter and setter attribute og a property of object on stack
+    ///
+    /// Pop the two getter and setter functions from the stack. Use
+    /// null instead of a function object if you want to leave any of
+    /// the functions unset.
     pub fn defaccessor(self: &State, idx: i32, name: &str, attrs: PropertyAttributes) {
         let name_c_str = CString::new(name).unwrap();
         unsafe { js_defaccessor(self.state, idx, name_c_str.as_ptr(), attrs.bits) };
     }
 
+    /// Delete named property of object
     pub fn delproperty(self: &State, idx: i32, name: &str) {
         let name_c_str = CString::new(name).unwrap();
         unsafe { js_delproperty(self.state, idx, name_c_str.as_ptr()) };
     }
 
+    /// Push object representing the global environment record
     pub fn pushglobal(self: &State) {
         unsafe { js_pushglobal(self.state) }
     }
 
+    /// Get named global variable
     pub fn getglobal(self: &State, name: &str) {
         let name_c_str = CString::new(name).unwrap();
         unsafe { js_getglobal(self.state, name_c_str.as_ptr()) }
     }
 
+    /// Set named variable with object on top of stack
     pub fn setglobal(self: &State, name: &str) {
         let name_c_str = CString::new(name).unwrap();
         unsafe { js_setglobal(self.state, name_c_str.as_ptr()) }
     }
 
+    /// Define named global variable
     pub fn defglobal(self: &State, name: &str, attrs: PropertyAttributes) {
         let name_c_str = CString::new(name).unwrap();
         unsafe { js_defglobal(self.state, name_c_str.as_ptr(), attrs.bits) }
     }
 
+    /// Test if item on stack is defined
     pub fn isdefined(self: &State, idx: i32) -> bool {
         match unsafe { js_isdefined(self.state, idx) } {
             0 => false,
@@ -482,6 +577,7 @@ impl State {
         }
     }
 
+    /// Test if item on stack is undefined
     pub fn isundefined(self: &State, idx: i32) -> bool {
         match unsafe { js_isundefined(self.state, idx) } {
             0 => false,
@@ -489,6 +585,7 @@ impl State {
         }
     }
 
+    /// Convert value on stack to string
     pub fn tostring(self: &State, idx: i32) -> Result<String, String> {
         let c_buf: *const c_char = unsafe { js_tostring(self.state, idx) };
 
@@ -501,6 +598,7 @@ impl State {
         })
     }
 
+    /// Convert value on stack to boolean
     pub fn toboolean(self: &State, idx: i32) -> Result<bool, String> {
         match unsafe { js_toboolean(self.state, idx) } {
             0 => Ok(false),
@@ -508,6 +606,7 @@ impl State {
         }
     }
 
+    /// Convert value on stack to number
     pub fn tonumber(self: &State, idx: i32) -> Result<f64, String> {
         Ok( unsafe { js_tonumber(self.state, idx) } )
     }
