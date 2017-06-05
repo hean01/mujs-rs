@@ -49,6 +49,8 @@ impl ToCString for str {
 extern {
     fn js_newstate(alloc: *const c_void, context: *const c_void, flags: c_int) -> *const c_void;
     fn js_freestate(J: *const c_void);
+    fn js_setcontext(J: *const c_void, uctx: *const c_void);
+    fn js_getcontext(J: *const c_void) -> *const c_void;
     fn js_atpanic(J: *const c_void, panic: Option<extern fn(J: *const c_void)>) -> *const c_void;
     fn js_gc(J: *const c_void, report: c_int);
     fn js_ploadstring(J: *const c_void, filename: *const c_char, source: *const c_char) -> c_int;
@@ -59,6 +61,10 @@ extern {
 
     fn js_newobject(J: *const c_void);
 
+    fn js_newuserdata(J: *const c_void, tag: *const c_char, data: *mut c_void,
+                      finalize: Option<extern fn(J: *const c_void, data: *mut c_void)>);
+    fn js_touserdata(J: *const c_void, idx: c_int, tag: *const c_char)-> *mut c_void;
+
     fn js_isobject(J: *const c_void, idx: c_int) -> c_int;
 
     fn js_hasproperty(J: *const c_void, idx: c_int, name: *const c_char) -> c_int;
@@ -68,10 +74,14 @@ extern {
     fn js_defaccessor(J: *const c_void, idx: c_int, name: *const c_char, attrs: c_int);
     fn js_delproperty(J: *const c_void, idx: c_int, name: *const c_char);
 
+    fn js_currentfunction(J: *const c_void);
     fn js_pushglobal(J: *const c_void);
     fn js_getglobal(J: *const c_void, name: *const c_char);
     fn js_setglobal(J: *const c_void, name: *const c_char);
     fn js_defglobal(J: *const c_void, name: *const c_char, attrs: c_int);
+
+    fn js_newcfunction(J: *const c_void, func: Option<extern fn(J: *const c_void)>,
+                       name: *const c_char,length: c_int);
 
     fn js_pushundefined(J: *const c_void);
     fn js_pushnull(J: *const c_void);
@@ -136,10 +146,17 @@ bitflags! {
 
 /// Interpreter state contains the value stack, protected environments
 /// and environment records.
-pub struct State {
+struct InternalState {
     state: *const c_void,
     memctx: *const c_void,
 }
+
+pub struct State {
+    internal: Box<InternalState>,
+    ptr: *mut InternalState,
+}
+
+static CLOSURE_TAG: &'static str = "__RustClosure__";
 
 impl State {
 
@@ -152,18 +169,24 @@ impl State {
     /// let state = mujs::State::new(mujs::JS_STRICT);
     /// ```
     pub fn new(flags: StateFlags) -> State {
-        let mut js = State {
-            state: std::ptr::null(),
-            memctx: std::ptr::null(),
+
+        let mut state = State {
+            internal: Box::new(InternalState{
+                state: std::ptr::null(),
+                memctx: std::ptr::null(),
+            }),
+            ptr: std::ptr::null_mut(),
         };
 
-        let js_ptr: *const State = &js;
-        js.memctx = js_ptr as *const c_void;
-        js.state = unsafe { js_newstate(std::ptr::null(), js.memctx, flags.bits) };
+        state.ptr = state.internal.as_mut() as *mut _;
+        unsafe {
+            (*state.ptr).memctx  = state.ptr as *const c_void;
+            (*state.ptr).state = js_newstate(std::ptr::null(), (*state.ptr).memctx, flags.bits);
+            js_setcontext((*state.ptr).state, (*state.ptr).memctx);
+            js_atpanic((*state.ptr).state, Some(State::_panic));
+        };
 
-        unsafe { js_atpanic(js.state, Some(State::_panic)) };
-
-        js
+        state
     }
 
     extern fn _panic(J: *const c_void) {
@@ -191,8 +214,8 @@ impl State {
     ///
     pub fn gc(self: &State, report: bool) {
         match report {
-            true => unsafe { js_gc(self.state, 1) },
-            false => unsafe { js_gc(self.state, 0) }
+            true => unsafe { js_gc((*self.ptr).state, 1) },
+            false => unsafe { js_gc((*self.ptr).state, 0) }
         }
     }
 
@@ -221,9 +244,11 @@ impl State {
     /// ```
     ///
     pub fn loadstring(self: &State, filename: &str, source: &str) -> Result<(), String> {
-        match unsafe { js_ploadstring(self.state, filename.to_cstr().unwrap().as_ptr(),
-                                      source.to_cstr().unwrap().as_ptr()) }
-        {
+        match unsafe {
+            js_ploadstring((*self.ptr).state,
+                           filename.to_cstr().unwrap().as_ptr(),
+                           source.to_cstr().unwrap().as_ptr())
+        } {
             0 => Ok(()),
             _ => {
                 let err = self.tostring(-1);
@@ -265,7 +290,7 @@ impl State {
     /// ```
     ///
     pub fn call(self: &State, n: i32) -> Result<(), String> {
-        match unsafe { js_pcall(self.state, n) } {
+        match unsafe { js_pcall((*self.ptr).state, n) } {
             0 => Ok(()),
             _ => {
                 let err = self.tostring(-1);
@@ -309,7 +334,7 @@ impl State {
     ///
     /// ```
     pub fn construct(self: &State, n: i32) -> Result<(), String> {
-        match unsafe { js_pconstruct(self.state, n) } {
+        match unsafe { js_pconstruct((*self.ptr).state, n) } {
             0 => Ok(()),
             _ => {
                 let err = self.tostring(-1);
@@ -320,7 +345,7 @@ impl State {
     }
 
     pub fn dostring(self: &State, source: &str) -> Result<(), String> {
-        match unsafe {js_dostring(self.state, source.to_cstr().unwrap().as_ptr()) } {
+        match unsafe {js_dostring((*self.ptr).state, source.to_cstr().unwrap().as_ptr()) } {
             0 => Ok(()),
             _ => {
                 let err = self.tostring(-1);
@@ -346,103 +371,103 @@ impl State {
     /// state.throw();
     /// ```
     pub fn throw(self: &State) {
-        unsafe { js_throw(self.state) };
+        unsafe { js_throw((*self.ptr).state) };
     }
 
     ///  Push a Error onto the stack
     pub fn newerror(self: &State, message: &str) {
-        unsafe { js_newerror(self.state, message.to_cstr().unwrap().as_ptr()) };
+        unsafe { js_newerror((*self.ptr).state, message.to_cstr().unwrap().as_ptr()) };
     }
 
     /// Push an EvaluationError onto the stack
     pub fn newevalerror(self: &State, message: &str) {
-        unsafe { js_newevalerror(self.state, message.to_cstr().unwrap().as_ptr()) }
+        unsafe { js_newevalerror((*self.ptr).state, message.to_cstr().unwrap().as_ptr()) }
     }
 
     /// Push a RangeError onto the stack
     pub fn newrangeerror(self: &State, message: &str) {
-        unsafe { js_newrangeerror(self.state, message.to_cstr().unwrap().as_ptr()) }
+        unsafe { js_newrangeerror((*self.ptr).state, message.to_cstr().unwrap().as_ptr()) }
     }
 
     /// Push a ReferenceError onto the stack
     pub fn newreferenceerror(self: &State, message: &str) {
-        unsafe { js_newreferenceerror(self.state, message.to_cstr().unwrap().as_ptr()) }
+        unsafe { js_newreferenceerror((*self.ptr).state, message.to_cstr().unwrap().as_ptr()) }
     }
 
     /// Push a SyntaxError onto the stack
     pub fn newsyntaxerror(self: &State, message: &str) {
-        unsafe { js_newsyntaxerror(self.state, message.to_cstr().unwrap().as_ptr()) }
+        unsafe { js_newsyntaxerror((*self.ptr).state, message.to_cstr().unwrap().as_ptr()) }
     }
 
     /// Push a TypeError onto the stack
     pub fn newtypeerror(self: &State, message: &str) {
-        unsafe { js_newtypeerror(self.state, message.to_cstr().unwrap().as_ptr()) }
+        unsafe { js_newtypeerror((*self.ptr).state, message.to_cstr().unwrap().as_ptr()) }
     }
 
     /// Push a URIError onto the stack
     pub fn newurierror(self: &State, message: &str) {
-        unsafe { js_newurierror(self.state, message.to_cstr().unwrap().as_ptr()) }
+        unsafe { js_newurierror((*self.ptr).state, message.to_cstr().unwrap().as_ptr()) }
     }
 
     /// Throws an Error in the executing environment
     pub fn error(self: &State, message: &str) {
         unsafe {
-            js_newerror(self.state, message.to_cstr().unwrap().as_ptr());
-            js_throw(self.state);
+            js_newerror((*self.ptr).state, message.to_cstr().unwrap().as_ptr());
+            js_throw((*self.ptr).state);
         };
     }
 
     /// Throws an EvalError in the executing environment
     pub fn evalerror(self: &State, message: &str) {
         unsafe {
-            js_newevalerror(self.state, message.to_cstr().unwrap().as_ptr());
-            js_throw(self.state);
+            js_newevalerror((*self.ptr).state, message.to_cstr().unwrap().as_ptr());
+            js_throw((*self.ptr).state);
         }
     }
 
     /// Throws an RangeError in the executing environment
     pub fn rangeerror(self: &State, message: &str) {
         unsafe {
-            js_newrangeerror(self.state, message.to_cstr().unwrap().as_ptr());
-            js_throw(self.state);
+            js_newrangeerror((*self.ptr).state, message.to_cstr().unwrap().as_ptr());
+            js_throw((*self.ptr).state);
         }
     }
 
     /// Throws an ReferenceError in the executing environment
     pub fn referenceerror(self: &State, message: &str) {
         unsafe {
-            js_newreferenceerror(self.state, message.to_cstr().unwrap().as_ptr());
-            js_throw(self.state);
+            js_newreferenceerror((*self.ptr).state, message.to_cstr().unwrap().as_ptr());
+            js_throw((*self.ptr).state);
         }
     }
 
     /// Throws an SyntaxError in the executing environment
     pub fn syntaxerror(self: &State, message: &str) {
         unsafe {
-            js_newsyntaxerror(self.state, message.to_cstr().unwrap().as_ptr());
-            js_throw(self.state);
+            js_newsyntaxerror((*self.ptr).state, message.to_cstr().unwrap().as_ptr());
+            js_throw((*self.ptr).state);
         }
     }
 
     /// Throws an TypeError in the executing environment
     pub fn typeerror(self: &State, message: &str) {
         unsafe {
-            js_newtypeerror(self.state, message.to_cstr().unwrap().as_ptr());
-            js_throw(self.state);
+            js_newtypeerror((*self.ptr).state, message.to_cstr().unwrap().as_ptr());
+            js_throw((*self.ptr).state);
         }
     }
 
     /// Throws an URIError in the executing environment
     pub fn urierror(self: &State, message: &str) {
         unsafe {
-            js_newurierror(self.state, message.to_cstr().unwrap().as_ptr());
-            js_throw(self.state);
+            js_newurierror((*self.ptr).state, message.to_cstr().unwrap().as_ptr());
+            js_throw((*self.ptr).state);
         }
     }
 
     /// Get top index of stack
     pub fn gettop(self: &State) -> i32 {
-        unsafe {  js_gettop(self.state) }
+        unsafe {  js_gettop((*self.ptr).state) }
     }
 
     /// Pop items off the stack
@@ -452,22 +477,22 @@ impl State {
     /// * `n` - Number of items to pop off the stack
     ///
     pub fn pop(self: &State, n: i32) {
-        unsafe { js_pop(self.state, n) }
+        unsafe { js_pop((*self.ptr).state, n) }
     }
 
     /// Copy stack item and push on top of stack
     pub fn copy(self: &State, idx: i32) {
-        unsafe { js_copy(self.state, idx) }
+        unsafe { js_copy((*self.ptr).state, idx) }
     }
 
     /// Create a new object and push onto stack
     pub fn newobject(self: &State) {
-        unsafe { js_newobject(self.state) };
+        unsafe { js_newobject((*self.ptr).state) };
     }
 
     /// Test if stack item is an object
     pub fn isobject(self: &State, idx: i32) -> bool {
-        match unsafe { js_isobject(self.state, idx) } {
+        match unsafe { js_isobject((*self.ptr).state, idx) } {
             0 => false,
             _ => true
         }
@@ -475,30 +500,30 @@ impl State {
 
     /// Push undefined primitive value onto the stack
     pub fn pushundefined(self: &State) {
-        unsafe { js_pushundefined(self.state) };
+        unsafe { js_pushundefined((*self.ptr).state) };
     }
 
     /// Push null primitive value onto the stack
     pub fn pushnull(self: &State) {
-        unsafe { js_pushnull(self.state) };
+        unsafe { js_pushnull((*self.ptr).state) };
     }
 
     /// Push boolean primitive value onto the stack
     pub fn pushboolean(self: &State, value: bool) {
         match value {
-            false => unsafe { js_pushboolean(self.state, 0) },
-            true => unsafe { js_pushboolean(self.state, 1) }
+            false => unsafe { js_pushboolean((*self.ptr).state, 0) },
+            true => unsafe { js_pushboolean((*self.ptr).state, 1) }
         }
     }
 
     /// Push number primitive value onto the stack
     pub fn pushnumber(self: &State, value: f64) {
-        unsafe { js_pushnumber(self.state, value) }
+        unsafe { js_pushnumber((*self.ptr).state, value) }
     }
 
     /// Push string primitive value onto the stack
     pub fn pushstring(self: &State, value: &str) {
-        unsafe { js_pushstring(self.state, value.to_cstr().unwrap().as_ptr()) }
+        unsafe { js_pushstring((*self.ptr).state, value.to_cstr().unwrap().as_ptr()) }
     }
 
     /// Test if object on stack has named property
@@ -518,7 +543,7 @@ impl State {
     /// }
     ///
     pub fn hasproperty(self: &State, idx: i32, name: &str) -> bool {
-        match unsafe { js_hasproperty(self.state, idx, name.to_cstr().unwrap().as_ptr()) } {
+        match unsafe { js_hasproperty((*self.ptr).state, idx, name.to_cstr().unwrap().as_ptr()) } {
             0 => false,
             _ => true
         }
@@ -526,12 +551,12 @@ impl State {
 
     /// Pop the value on top of stack and assigns it to named property
     pub fn setproperty(self: &State, idx: i32, name: &str) {
-        unsafe { js_setproperty(self.state, idx, name.to_cstr().unwrap().as_ptr()) };
+        unsafe { js_setproperty((*self.ptr).state, idx, name.to_cstr().unwrap().as_ptr()) };
     }
 
     /// Push the value of named property of object on top of stack
     pub fn getproperty(self: &State, idx: i32, name: &str) {
-        unsafe { js_getproperty(self.state, idx, name.to_cstr().unwrap().as_ptr()) };
+        unsafe { js_getproperty((*self.ptr).state, idx, name.to_cstr().unwrap().as_ptr()) };
     }
 
     /// Define named property of object
@@ -549,7 +574,7 @@ impl State {
     ///
     /// ```
     pub fn defproperty(self: &State, idx: i32, name: &str, attrs: PropertyAttributes) {
-        unsafe { js_defproperty(self.state, idx, name.to_cstr().unwrap().as_ptr(), attrs.bits) };
+        unsafe { js_defproperty((*self.ptr).state, idx, name.to_cstr().unwrap().as_ptr(), attrs.bits) };
     }
 
     /// Define a getter and setter attribute og a property of object on stack
@@ -558,37 +583,90 @@ impl State {
     /// null instead of a function object if you want to leave any of
     /// the functions unset.
     pub fn defaccessor(self: &State, idx: i32, name: &str, attrs: PropertyAttributes) {
-        unsafe { js_defaccessor(self.state, idx, name.to_cstr().unwrap().as_ptr(), attrs.bits) };
+        unsafe { js_defaccessor((*self.ptr).state, idx, name.to_cstr().unwrap().as_ptr(), attrs.bits) };
     }
 
     /// Delete named property of object
     pub fn delproperty(self: &State, idx: i32, name: &str) {
-        unsafe { js_delproperty(self.state, idx, name.to_cstr().unwrap().as_ptr()) };
+        unsafe { js_delproperty((*self.ptr).state, idx, name.to_cstr().unwrap().as_ptr()) };
     }
 
     /// Push object representing the global environment record
     pub fn pushglobal(self: &State) {
-        unsafe { js_pushglobal(self.state) }
+        unsafe { js_pushglobal((*self.ptr).state) }
     }
 
     /// Get named global variable
     pub fn getglobal(self: &State, name: &str) {
-        unsafe { js_getglobal(self.state, name.to_cstr().unwrap().as_ptr()) }
+        unsafe { js_getglobal((*self.ptr).state, name.to_cstr().unwrap().as_ptr()) }
     }
 
     /// Set named variable with object on top of stack
     pub fn setglobal(self: &State, name: &str) {
-        unsafe { js_setglobal(self.state, name.to_cstr().unwrap().as_ptr()) }
+        unsafe { js_setglobal((*self.ptr).state, name.to_cstr().unwrap().as_ptr()) }
     }
 
     /// Define named global variable
     pub fn defglobal(self: &State, name: &str, attrs: PropertyAttributes) {
-        unsafe { js_defglobal(self.state, name.to_cstr().unwrap().as_ptr(), attrs.bits) }
+        unsafe { js_defglobal((*self.ptr).state, name.to_cstr().unwrap().as_ptr(), attrs.bits) }
+    }
+
+    extern fn _newcfunction_trampoline(J: *const c_void) {
+
+        let s_ptr: *const State = unsafe { js_getcontext(J) as *const State };
+        let state: &State = unsafe{ &(*s_ptr) };
+
+        let cb_ptr = unsafe {
+            js_currentfunction(J);
+            js_getproperty(J, -1, CLOSURE_TAG.to_cstr().unwrap().as_ptr());
+            js_touserdata(J, -1, CLOSURE_TAG.to_cstr().unwrap().as_ptr())
+        };
+
+        let func: &mut Box<FnMut(&State)> = unsafe { std::mem::transmute(cb_ptr) };
+        func(state);
+    }
+
+    extern fn _finalize(J: *const c_void, data: *mut c_void) {
+    }
+
+    /// push a function object wrapping a rustc closure
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use mujs;
+    ///
+    /// let mut state = mujs::State::new(mujs::JS_STRICT);
+    ///
+    /// state.newfunction( move |x| {
+    ///     println!("Hello World!");
+    /// }, "myfunc", 0);
+    /// state.setglobal("myfunc");
+    ///
+    /// state.getglobal("myfunc");
+    /// state.pushundefined();
+    /// state.call(0);
+    /// ```
+    pub fn newfunction<F>(self: &State, mut func: F, name: &str, length: i32)
+        where F: FnMut(&State),
+              F: 'static
+    {
+        let cb: Box<Box<FnMut(&State)>> = Box::new(Box::new(func));
+        let cb_ptr = Box::into_raw(cb) as *mut _;
+        unsafe {
+            js_newcfunction((*self.ptr).state, Some(::State::_newcfunction_trampoline),
+                            name.to_cstr().unwrap().as_ptr(),length);
+            js_pushnull((*self.ptr).state);
+            js_newuserdata((*self.ptr).state,CLOSURE_TAG.to_cstr().unwrap().as_ptr(),
+                           cb_ptr, Some(::State::_finalize));
+            js_defproperty((*self.ptr).state, -2, CLOSURE_TAG.to_cstr().unwrap().as_ptr(),
+                           (::JS_READONLY | ::JS_DONTENUM | ::JS_DONTCONF).bits);
+        };
     }
 
     /// Test if item on stack is defined
     pub fn isdefined(self: &State, idx: i32) -> bool {
-        match unsafe { js_isdefined(self.state, idx) } {
+        match unsafe { js_isdefined((*self.ptr).state, idx) } {
             0 => false,
             _ => true
         }
@@ -596,7 +674,7 @@ impl State {
 
     /// Test if item on stack is undefined
     pub fn isundefined(self: &State, idx: i32) -> bool {
-        match unsafe { js_isundefined(self.state, idx) } {
+        match unsafe { js_isundefined((*self.ptr).state, idx) } {
             0 => false,
             _ => true
         }
@@ -604,7 +682,7 @@ impl State {
 
     /// Convert value on stack to string
     pub fn tostring(self: &State, idx: i32) -> Result<String, String> {
-        let c_buf: *const c_char = unsafe { js_tostring(self.state, idx) };
+        let c_buf: *const c_char = unsafe { js_tostring((*self.ptr).state, idx) };
 
         if c_buf == std::ptr::null() {
             return Err("Null string".to_string())
@@ -617,7 +695,7 @@ impl State {
 
     /// Convert value on stack to boolean
     pub fn toboolean(self: &State, idx: i32) -> Result<bool, String> {
-        match unsafe { js_toboolean(self.state, idx) } {
+        match unsafe { js_toboolean((*self.ptr).state, idx) } {
             0 => Ok(false),
             _ => Ok(true)
         }
@@ -625,14 +703,14 @@ impl State {
 
     /// Convert value on stack to number
     pub fn tonumber(self: &State, idx: i32) -> Result<f64, String> {
-        Ok( unsafe { js_tonumber(self.state, idx) } )
+        Ok( unsafe { js_tonumber((*self.ptr).state, idx) } )
     }
 
 }
 
 impl Drop for State {
     fn drop(self: &mut State) {
-        unsafe { js_freestate(self.state) };
+        unsafe { js_freestate((*self.ptr).state) };
     }
 }
 
@@ -650,9 +728,9 @@ mod tests {
     fn panic_are_handled() {
         let state = ::State::new(::StateFlags{bits: 0});
         unsafe {
-            ::js_pushnumber(state.state, 1.234);
-            ::js_pushnull(state.state);
-            ::js_call(state.state, 0);
+            ::js_pushnumber((*state.ptr).state, 1.234);
+            ::js_pushnull((*state.ptr).state);
+            ::js_call((*state.ptr).state, 0);
         }
     }
 
