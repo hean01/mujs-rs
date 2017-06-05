@@ -144,13 +144,13 @@ bitflags! {
     }
 }
 
-/// Interpreter state contains the value stack, protected environments
-/// and environment records.
 struct InternalState {
     state: *const c_void,
     memctx: *const c_void,
 }
 
+/// Interpreter state contains the value stack, protected environments
+/// and environment records.
 pub struct State {
     internal: Box<InternalState>,
     ptr: *mut InternalState,
