@@ -1,5 +1,8 @@
 # mujs-rs - rust MuJS bindings
-[![Status](https://api.travis-ci.org/hean01/mujs-rs.svg?branch=master)](https://travis-ci.org/hean01/mujs-rs)
+[![Version](https://img.shields.io/crates/v/mujs.svg)](https://crates.io/crates/mujs)
+[![License](https://img.shields.io/crates/l/mujs.svg)](https://crates.io/crates/mujs)
+[![Downloads](https://img.shields.io/crates/d/mujs.svg)](https://crates.io/crates/mujs)
+[![Status](https://img.shields.io/travis/hean01/mujs-rs/master.svg)](https://travis-ci.org/hean01/mujs-rs)
 
 [MuJS](http://mujs.com) is a lightweight implementation of the
 Javascript language in a library. MuJS is licensed under AGPL and
