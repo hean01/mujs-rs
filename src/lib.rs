@@ -1125,6 +1125,19 @@ mod tests {
     }
 
     #[test]
+    fn newfunction_closure_is_called() {
+        let state = ::State::new(::JS_STRICT);
+        state.newfunction(|js| {
+            js.pushnumber(1.2345);
+        }, "func", 0);
+        state.setglobal("func");
+        state.getglobal("func");
+        state.pushundefined();
+        state.call(0);
+        assert_eq!(state.tonumber(0).unwrap(), 1.2345);
+    }
+
+    #[test]
     fn isdefined_on_undefined_is_false() {
         let state = ::State::new(::StateFlags{bits: 0});
         state.pushundefined();
