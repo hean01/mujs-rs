@@ -189,9 +189,9 @@ impl State {
         state
     }
 
-    extern fn _panic(J: *const c_void) {
-        let top = unsafe { js_gettop(J) };
-        let res_c_str = unsafe { js_tostring(J, top - 1) };
+    extern fn _panic(js: *const c_void) {
+        let top = unsafe { js_gettop(js) };
+        let res_c_str = unsafe { js_tostring(js, top - 1) };
         let err = unsafe { CStr::from_ptr(res_c_str).to_string_lossy().into_owned() };
         panic!("{:?}", err);
     }
@@ -611,22 +611,22 @@ impl State {
         unsafe { js_defglobal((*self.ptr).state, name.to_cstr().unwrap().as_ptr(), attrs.bits) }
     }
 
-    extern fn _newcfunction_trampoline(J: *const c_void) {
+    extern fn _newcfunction_trampoline(js: *const c_void) {
 
-        let s_ptr: *const State = unsafe { js_getcontext(J) as *const State };
+        let s_ptr: *const State = unsafe { js_getcontext(js) as *const State };
         let state: &State = unsafe{ &(*s_ptr) };
 
         let cb_ptr = unsafe {
-            js_currentfunction(J);
-            js_getproperty(J, -1, CLOSURE_TAG.to_cstr().unwrap().as_ptr());
-            js_touserdata(J, -1, CLOSURE_TAG.to_cstr().unwrap().as_ptr())
+            js_currentfunction(js);
+            js_getproperty(js, -1, CLOSURE_TAG.to_cstr().unwrap().as_ptr());
+            js_touserdata(js, -1, CLOSURE_TAG.to_cstr().unwrap().as_ptr())
         };
 
         let func: &mut Box<FnMut(&State)> = unsafe { std::mem::transmute(cb_ptr) };
         func(state);
     }
 
-    extern fn _finalize(J: *const c_void, data: *mut c_void) {
+    extern fn _finalize(_: *const c_void, _: *mut c_void) {
     }
 
     /// push a function object wrapping a rustc closure
@@ -647,7 +647,7 @@ impl State {
     /// state.pushundefined();
     /// state.call(0);
     /// ```
-    pub fn newfunction<F>(self: &State, mut func: F, name: &str, length: i32)
+    pub fn newfunction<F>(self: &State, func: F, name: &str, length: i32)
         where F: FnMut(&State),
               F: 'static
     {
@@ -1133,7 +1133,7 @@ mod tests {
         state.setglobal("func");
         state.getglobal("func");
         state.pushundefined();
-        state.call(0);
+        assert_eq!(state.call(0).is_ok(), true);
         assert_eq!(state.tonumber(0).unwrap(), 1.2345);
     }
 
