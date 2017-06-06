@@ -74,6 +74,7 @@ extern {
     fn js_defaccessor(J: *const c_void, idx: c_int, name: *const c_char, attrs: c_int);
     fn js_delproperty(J: *const c_void, idx: c_int, name: *const c_char);
 
+    fn js_getlength(J: *const c_void, idx: c_int) -> c_int;
     fn js_currentfunction(J: *const c_void);
     fn js_pushglobal(J: *const c_void);
     fn js_getglobal(J: *const c_void, name: *const c_char);
@@ -589,6 +590,26 @@ impl State {
     /// Delete named property of object
     pub fn delproperty(self: &State, idx: i32, name: &str) {
         unsafe { js_delproperty((*self.ptr).state, idx, name.to_cstr().unwrap().as_ptr()) };
+    }
+
+    /// Get length of an array
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use mujs;
+    ///
+    /// let state = mujs::State::new(mujs::JS_STRICT);
+    ///
+    /// assert!(state.loadstring("script", "[1,2,3,4,5,6]").is_ok());
+    /// state.pushundefined();
+    /// assert!(state.call(0).is_ok());
+    ///
+    /// println!("Length: {:?}", state.getlength(0));
+    ///
+    /// ```
+    pub fn getlength(self: &State, idx: i32) -> i32 {
+        unsafe { js_getlength((*self.ptr).state, idx) }
     }
 
     /// Push object representing the global environment record
@@ -1313,6 +1334,24 @@ mod tests {
         state.delproperty(0, "func");
         state.getproperty(0, "func");
         assert_eq!(state.tostring(1).unwrap(), "undefined");
+    }
+
+    #[test]
+    fn getlength_on_empty_array() {
+        let state = ::State::new(::JS_STRICT);
+        assert!(state.loadstring("myscript", "[]").is_ok());
+        state.pushundefined();
+        assert!(state.call(0).is_ok());
+        assert_eq!(state.getlength(0), 0);
+    }
+
+    #[test]
+    fn getlength_on_non_empty_array() {
+        let state = ::State::new(::JS_STRICT);
+        assert!(state.loadstring("myscript", "[1, 2, 3]").is_ok());
+        state.pushundefined();
+        assert!(state.call(0).is_ok());
+        assert_eq!(state.getlength(0), 3);
     }
 
     #[test]
