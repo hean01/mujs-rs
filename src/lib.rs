@@ -60,6 +60,7 @@ extern {
     fn js_dostring(J: *const c_void, source: *const c_char) -> c_int;
 
     fn js_newobject(J: *const c_void);
+    fn js_newarray(J: *const c_void);
 
     fn js_newuserdata(J: *const c_void, tag: *const c_char, data: *mut c_void,
                       finalize: Option<extern fn(J: *const c_void, data: *mut c_void)>);
@@ -75,6 +76,12 @@ extern {
     fn js_delproperty(J: *const c_void, idx: c_int, name: *const c_char);
 
     fn js_getlength(J: *const c_void, idx: c_int) -> c_int;
+    fn js_setlength(J: *const c_void, idx: c_int, length: c_int);
+    fn js_hasindex(J: *const c_void, idx: c_int, i: c_int) -> c_int;
+    fn js_getindex(J: *const c_void, idx: c_int, i: c_int);
+    fn js_setindex(J: *const c_void, idx: c_int, i: c_int);
+    fn js_delindex(J: *const c_void, idx: c_int, i: c_int);
+
     fn js_currentfunction(J: *const c_void);
     fn js_pushglobal(J: *const c_void);
     fn js_getglobal(J: *const c_void, name: *const c_char);
@@ -491,6 +498,38 @@ impl State {
         unsafe { js_newobject((*self.ptr).state) };
     }
 
+    /// Create an array and push onto stack
+    ///
+    /// # Examples
+    /// ```
+    /// use mujs;
+    ///
+    /// let state = mujs::State::new(mujs::JS_STRICT);
+    /// state.newarray();
+    ///
+    /// state.pushstring("Hello");
+    /// state.setindex(-2, 0);
+    ///
+    /// state.pushstring("world!");
+    /// state.setindex(-2, 1);
+    ///
+    /// state.setlength(-1, 2);
+    /// state.setglobal("arr");
+    ///
+    /// assert!(state.loadstring("script", "               \
+    ///                           arr[2] = 'Third item';   \
+    ///                           arr[3] = 2.43;           \
+    ///                           arr[1];").is_ok());
+    /// state.pushundefined();
+    /// assert!(state.call(0).is_ok());
+    ///
+    /// assert_eq!(state.tostring(0).unwrap(), "world!");
+    /// ```
+    ///
+    pub fn newarray(self: &State) {
+        unsafe { js_newarray((*self.ptr).state) };
+    }
+
     /// Test if stack item is an object
     pub fn isobject(self: &State, idx: i32) -> bool {
         match unsafe { js_isobject((*self.ptr).state, idx) } {
@@ -610,6 +649,34 @@ impl State {
     /// ```
     pub fn getlength(self: &State, idx: i32) -> i32 {
         unsafe { js_getlength((*self.ptr).state, idx) }
+    }
+
+    /// Set length of an array
+    pub fn setlength(self: &State, idx: i32, length: i32) {
+        unsafe { js_setlength((*self.ptr).state, idx, length) }
+    }
+
+    /// Test if array has specified index
+    pub fn hasindex(self: &State, idx: i32, i: i32) -> bool {
+        match unsafe { js_hasindex((*self.ptr).state, idx, i) } {
+            0 => false,
+            _ => true
+        }
+    }
+
+    /// Get item from array index on top of stack
+    pub fn getindex(self: &State, idx: i32, i: i32) {
+        unsafe { js_getindex((*self.ptr).state, idx, i) }
+    }
+
+    /// Set array index with item on top of stack
+    pub fn setindex(self: &State, idx: i32, i: i32) {
+        unsafe { js_setindex((*self.ptr).state, idx, i) }
+    }
+
+    /// Delete item from array at specified index
+    pub fn delindex(self: &State, idx: i32, i: i32) {
+        unsafe { js_delindex((*self.ptr).state, idx, i) }
     }
 
     /// Push object representing the global environment record
@@ -933,6 +1000,30 @@ mod tests {
         state.newobject();
         assert!(state.call(0).is_ok());
         assert_eq!(state.tonumber(0).ok().unwrap().classify(), std::num::FpCategory::Nan);
+    }
+
+    #[test]
+    fn newarray_with_three_items() {
+        let state = ::State::new(::JS_STRICT);
+        state.newarray();
+        state.pushnumber(32.25);
+        state.setindex(-2, 0);
+        state.pushnumber(64.12);
+        state.setindex(-2, 1);
+        state.pushnumber(23.73);
+        state.setindex(-2, 2);
+        state.setlength(-1, 3);
+        state.setglobal("arr");
+
+        assert!(state.loadstring("script", "arr[1];").is_ok());
+        state.pushundefined();
+        assert!(state.call(0).is_ok());
+        assert_eq!(state.tonumber(0).unwrap(), 64.12);
+
+        assert!(state.loadstring("script", "arr.length;").is_ok());
+        state.pushundefined();
+        assert!(state.call(0).is_ok());
+        assert_eq!(state.tonumber(1).unwrap(), 3.0);
     }
 
     #[test]
@@ -1352,6 +1443,83 @@ mod tests {
         state.pushundefined();
         assert!(state.call(0).is_ok());
         assert_eq!(state.getlength(0), 3);
+    }
+
+    #[test]
+    fn hasindex_on_empty_array() {
+        let state = ::State::new(::JS_STRICT);
+        assert!(state.loadstring("myscript", "[]").is_ok());
+        state.pushundefined();
+        assert!(state.call(0).is_ok());
+        assert_eq!(state.hasindex(0, 1), false);
+    }
+
+    #[test]
+    fn hasindex_on_non_existing_index() {
+        let state = ::State::new(::JS_STRICT);
+        assert!(state.loadstring("myscript", "[1,2,3]").is_ok());
+        state.pushundefined();
+        assert!(state.call(0).is_ok());
+        assert_eq!(state.hasindex(0, 4), false);
+    }
+
+    #[test]
+    fn hasindex_on_existing_index() {
+        let state = ::State::new(::JS_STRICT);
+        assert!(state.loadstring("myscript", "[1,2,3]").is_ok());
+        state.pushundefined();
+        assert!(state.call(0).is_ok());
+        assert_eq!(state.hasindex(0, 2), true);
+    }
+
+    #[test]
+    fn hasindex_on_non_array() {
+        let state = ::State::new(::JS_STRICT);
+        assert!(state.loadstring("myscript", "1").is_ok());
+        state.pushundefined();
+        assert!(state.call(0).is_ok());
+        assert_eq!(state.hasindex(0, 2), false);
+    }
+
+    #[test]
+    fn getindex_on_empty_array() {
+        let state = ::State::new(::JS_STRICT);
+        assert!(state.loadstring("myscript", "[]").is_ok());
+        state.pushundefined();
+        assert!(state.call(0).is_ok());
+        state.getindex(0, 0);
+        assert_eq!(state.isundefined(1), true);
+    }
+
+    #[test]
+    fn getindex_on_existing_index() {
+        let state = ::State::new(::JS_STRICT);
+        assert!(state.loadstring("myscript", "[1,2,3]").is_ok());
+        state.pushundefined();
+        assert!(state.call(0).is_ok());
+        state.getindex(0, 2);
+        assert_eq!(state.tonumber(1).unwrap(), 3.0);
+    }
+
+    #[test]
+    fn delindex_on_empty_array() {
+        let state = ::State::new(::JS_STRICT);
+        assert!(state.loadstring("myscript", "[]").is_ok());
+        state.pushundefined();
+        assert!(state.call(0).is_ok());
+        state.delindex(0, 2);
+        assert_eq!(state.getlength(0), 0);
+    }
+
+    #[test]
+    fn delindex_on_non_empty_array() {
+        let state = ::State::new(::JS_STRICT);
+        assert!(state.loadstring("myscript", "[1,2,3]").is_ok());
+        state.pushundefined();
+        assert!(state.call(0).is_ok());
+        state.delindex(0, 2);
+        state.getindex(0, 2);
+        assert_eq!(state.isundefined(1), true);
     }
 
     #[test]
