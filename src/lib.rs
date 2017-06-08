@@ -1,8 +1,9 @@
 //! # Rust MuJS bindings
 //!
-//! [MuJS](http://mujs.com) is a lightweight implementation of the
-//! Javascript language in a library. MuJS is licensed under AGPL and
-//! so is this rustc bindings.
+//! [MuJS](http://dev.mujs.com) is a lightweight implementation of the
+//! Javascript language in a library. MuJS is licensed under ISC
+//! license which is FSF approved and compatible with GPL. MuJS rust
+//! bindings are licensed under GPLv3.
 //!
 //! Its primary purpose and design is for embedding in other software
 //! to add scripting capability to those programs, but it can also be
@@ -16,6 +17,8 @@
 //! The interface for binding with native code is designed to be as
 //! simple as possible to use, and is similar to Lua.
 //!
+//! For more indepth information about MuJS see [MuJS Reference
+//! Manual](http://dev.mujs.com/docs/reference.html).
 
 #[macro_use]
 extern crate bitflags;
