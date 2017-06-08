@@ -117,6 +117,11 @@ extern {
     fn js_tostring(J: *const c_void, idx: i32) -> *const c_char;
     fn js_toboolean(J: *const c_void, idx: i32) -> c_int;
     fn js_tonumber(J: *const c_void, idx: i32) -> c_double;
+
+    fn js_getregistry(J: *const c_void, name: *const c_char);
+    fn js_setregistry(J: *const c_void, name: *const c_char);
+    fn js_delregistry(J: *const c_void, name: *const c_char);
+
 }
 
 bitflags! {
@@ -794,6 +799,39 @@ impl State {
         Ok( unsafe { js_tonumber((*self.ptr).state, idx) } )
     }
 
+    /// Get named registry entry and place on top of stack
+    ///
+    /// The registry can be used to store references to Javascript
+    /// objects accessible from rust, but hidden from Javascript to
+    /// prevent tampering.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use mujs;
+    ///
+    /// let state = mujs::State::new(mujs::JS_STRICT);
+    ///
+    /// state.pushnumber(32.0);
+    /// state.setregistry("number");
+    ///
+    /// state.getregistry("number");
+    /// println!("Number: {:?}", state.tonumber(0).unwrap());
+    /// ```
+    ///
+    pub fn getregistry(self: &State, name: &str) {
+        unsafe { js_getregistry((*self.ptr).state, name.to_cstr().unwrap().as_ptr()) }
+    }
+
+    /// Store top of stack as named entry in registry
+    pub fn setregistry(self: &State, name: &str) {
+        unsafe { js_setregistry((*self.ptr).state, name.to_cstr().unwrap().as_ptr()) }
+    }
+
+    /// Delete name registry entry
+    pub fn delregistry(self: &State, name: &str) {
+        unsafe { js_delregistry((*self.ptr).state, name.to_cstr().unwrap().as_ptr()) }
+    }
 }
 
 impl Drop for State {
@@ -1591,5 +1629,21 @@ mod tests {
         state.getglobal("me");
         state.getproperty(1, "age");
         assert_eq!(state.tostring(2).unwrap(), "1.234");
+    }
+
+    #[test]
+    fn getregistry_unknown_name() {
+        let state = ::State::new(::JS_STRICT);
+        state.getregistry("hidden");
+        assert_eq!(state.isundefined(0), true);
+    }
+
+    #[test]
+    fn getregistry_with_existing_name() {
+        let state = ::State::new(::JS_STRICT);
+        state.pushnumber(1.234);
+        state.setregistry("hidden");
+        state.getregistry("hidden");
+        assert_eq!(state.tonumber(0).unwrap(), 1.234);
     }
 }
