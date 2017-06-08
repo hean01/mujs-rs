@@ -64,6 +64,10 @@ extern {
 
     fn js_newobject(J: *const c_void);
     fn js_newarray(J: *const c_void);
+    fn js_newboolean(J: *const c_void, v: c_int);
+    fn js_newnumber(J: *const c_void, v: c_double);
+    fn js_newstring(J: *const c_void, v: *const c_char);
+    fn js_newregexp(J: *const c_void, pattern: *const c_char, flags: c_int);
 
     fn js_newuserdata(J: *const c_void, tag: *const c_char, data: *mut c_void,
                       finalize: Option<extern fn(J: *const c_void, data: *mut c_void)>);
@@ -164,6 +168,25 @@ bitflags! {
     pub struct StateFlags: c_int {
         /// Compile and run code using ES5 strict mode.
         const JS_STRICT = 1;
+    }
+}
+
+bitflags! {
+    /// Regular expression (RegExp) flags
+    pub struct RegExpFlags: c_int {
+        /// Global match
+        ///
+        /// Finds all matches rather than stopping after first match.
+        const JS_REGEXP_G = 1;
+
+        /// Ingore case
+        const JS_REGEXP_I = 2;
+
+        /// Multiline
+        ///
+        /// Treat beginning and end characters (^ and $) as working
+        /// over multiple lines
+        const JS_REGEXP_M = 4;
     }
 }
 
@@ -579,6 +602,50 @@ impl State {
     ///
     pub fn newarray(self: &State) {
         unsafe { js_newarray((*self.ptr).state) };
+    }
+
+    /// Create a new boolean and push on top of stack
+    pub fn newboolean(self: &State, value: bool) {
+        match value {
+            true => unsafe { js_newboolean((*self.ptr).state, 1) },
+            false => unsafe { js_newboolean((*self.ptr).state, 0) }
+        }
+    }
+
+    /// Create a new number and push on top of stack
+    pub fn newnumber(self: &State, value: f64) {
+        unsafe { js_newnumber((*self.ptr).state, value) };
+    }
+
+    /// Create a new string and push on top of stack
+    pub fn newstring(self: &State, value: &str) {
+        unsafe { js_newstring((*self.ptr).state, value.to_cstr().unwrap().as_ptr()) };
+    }
+
+    /// Create a new regular expression and push on top of stack
+    ///
+    /// # Example
+    ///
+    /// Following example will create a regular expression object and
+    /// get the test function onto the stack. Then copy the this on
+    /// stack and a string to test expression against. Then call the
+    /// test() function which returns a boolean onto the stack.
+    ///
+    /// ```
+    /// use mujs;
+    ///
+    /// let state = mujs::State::new(mujs::JS_STRICT);
+    ///
+    /// state.newregexp("^Hello (.*)!$", mujs::JS_REGEXP_G);
+    /// state.getproperty(0, "test");
+    /// state.copy(0);
+    /// state.pushstring("Hello World!");
+    /// state.call(1).unwrap();
+    ///
+    /// assert_eq!(state.toboolean(1).unwrap(), true);
+    /// ```
+    pub fn newregexp(self: &State, pattern: &str, flags: RegExpFlags) {
+        unsafe { js_newregexp((*self.ptr).state, pattern.to_cstr().unwrap().as_ptr(), flags.bits) };
     }
 
     /// Test if stack item is an object
@@ -1148,6 +1215,49 @@ mod tests {
         state.pushundefined();
         assert!(state.call(0).is_ok());
         assert_eq!(state.tonumber(1).unwrap(), 3.0);
+    }
+
+    #[test]
+    fn newboolean_validate_as_string() {
+        let state = ::State::new(::JS_STRICT);
+        state.newboolean(false);
+        assert_eq!(state.tostring(0).unwrap(), "false");
+    }
+
+    #[test]
+    fn newnumber_validate_as_string() {
+        let state = ::State::new(::JS_STRICT);
+        state.newnumber(1.2345);
+        assert_eq!(state.tostring(0).unwrap(), "1.2345");
+    }
+
+    #[test]
+    fn newstring_validate_as_string() {
+        let state = ::State::new(::JS_STRICT);
+        state.newstring("Hello World!");
+        assert_eq!(state.tostring(0).unwrap(), "Hello World!");
+    }
+
+    #[test]
+    fn newregexp_test_matching_string() {
+        let state = ::State::new(::JS_STRICT);
+        state.newregexp("^Hello (.*)!$", ::JS_REGEXP_G);
+        state.getproperty(0, "test");
+        state.copy(0);
+        state.pushstring("Hello World!");
+        state.call(1).unwrap();
+        assert_eq!(state.toboolean(1).unwrap(), true);
+    }
+
+    #[test]
+    fn newregexp_test_non_matching_string() {
+        let state = ::State::new(::JS_STRICT);
+        state.newregexp("^Hello (.*)!$", ::JS_REGEXP_G);
+        state.getproperty(0, "test");
+        state.copy(0);
+        state.pushstring("Hello World.");
+        state.call(1).unwrap();
+        assert_eq!(state.toboolean(1).unwrap(), false);
     }
 
     #[test]
