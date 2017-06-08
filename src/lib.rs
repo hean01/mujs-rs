@@ -116,6 +116,8 @@ extern {
     fn js_gettop(J: *const c_void) -> c_int;
     fn js_pop(J: *const c_void, n: c_int);
     fn js_copy(J: *const c_void, idx: c_int);
+    fn js_rot(J: *const c_void, n: c_int);
+    fn js_remove(J: *const c_void, idx: c_int);
 
     fn js_tostring(J: *const c_void, idx: i32) -> *const c_char;
     fn js_toboolean(J: *const c_void, idx: i32) -> c_int;
@@ -496,9 +498,45 @@ impl State {
         unsafe { js_pop((*self.ptr).state, n) }
     }
 
+    /// Rotate items on stack
+    ///
+    /// For example, let say your stack contains `[A, B, C]` and after
+    /// a call to this function it will be `[C, B, A]`.
+    ///
+    /// # Arguments
+    ///
+    /// * `n` - Number of items to rotate on the stack
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use mujs;
+    ///
+    /// let state = mujs::State::new(mujs::JS_STRICT);
+    /// state.pushnumber(1.0);
+    /// state.pushnumber(2.0);
+    /// state.pushnumber(3.0);
+    ///
+    /// state.rot(3);
+    ///
+    /// println!("Number: {:?}", state.tonumber(0).unwrap());
+    /// ```
+    ///
+    /// The above example will print `Number: 3` which now is moved
+    /// from stack index 2 to index 0.
+    ///
+    pub fn rot(self: &State, n: i32) {
+        unsafe { js_rot((*self.ptr).state, n) }
+    }
+
     /// Copy stack item and push on top of stack
     pub fn copy(self: &State, idx: i32) {
         unsafe { js_copy((*self.ptr).state, idx) }
+    }
+
+    /// Remove specified item from stack
+    pub fn remove(self: &State, idx: i32) {
+        unsafe { js_remove((*self.ptr).state, idx) }
     }
 
     /// Create a new object and push onto stack
@@ -1256,6 +1294,34 @@ mod tests {
     }
 
     #[test]
+    fn rot_of_one_item_on_stack() {
+        let state = ::State::new(::JS_STRICT);
+        state.pushnumber(1.2345);
+        state.rot(1);
+        assert_eq!(state.tonumber(0).unwrap(), 1.2345);
+    }
+
+    #[test]
+    fn rot_of_two_items_on_stack() {
+        let state = ::State::new(::JS_STRICT);
+        state.pushnumber(1.2345);
+        state.pushnumber(5.4321);
+        state.rot(2);
+        assert_eq!(state.tonumber(0).unwrap(), 5.4321);
+        assert_eq!(state.tonumber(1).unwrap(), 1.2345);
+    }
+
+    #[test]
+    fn rot_of_item_of_two_items_on_stack() {
+        let state = ::State::new(::JS_STRICT);
+        state.pushnumber(1.2345);
+        state.pushnumber(5.4321);
+        state.rot(1);
+        assert_eq!(state.tonumber(0).unwrap(), 1.2345);
+        assert_eq!(state.tonumber(1).unwrap(), 5.4321);
+    }
+
+    #[test]
     fn copy_one_item_on_stack() {
         let state = ::State::new(::JS_STRICT);
         state.pushnumber(1.2345);
@@ -1275,6 +1341,31 @@ mod tests {
         assert_eq!(state.tonumber(1).unwrap(), 1.2345);
         assert_eq!(state.tonumber(2).unwrap(), 1.2345);
         assert_eq!(state.tonumber(3).unwrap(), 1.2345);
+    }
+
+    #[test]
+    #[should_panic(expected = "Error: stack error!")]
+    fn remove_one_item_with_empty_stack_raises_stack_error() {
+        let state = ::State::new(::JS_STRICT);
+        state.remove(-1);
+    }
+
+    #[test]
+    fn remove_top_item_with_two_items_on_stack() {
+        let state = ::State::new(::JS_STRICT);
+        state.pushnumber(0.0);
+        state.pushnumber(1.0);
+        state.remove(1);
+        assert_eq!(state.tonumber(0).unwrap(), 0.0);
+    }
+
+    #[test]
+    fn remove_bottom_item_with_two_items_on_stack() {
+        let state = ::State::new(::JS_STRICT);
+        state.pushnumber(0.0);
+        state.pushnumber(1.0);
+        state.remove(0);
+        assert_eq!(state.tonumber(0).unwrap(), 1.0);
     }
 
     #[test]
