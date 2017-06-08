@@ -102,6 +102,11 @@ extern {
 
     fn js_isdefined(J: *const c_void, idx: c_int) -> c_int;
     fn js_isundefined(J: *const c_void, idx: c_int) -> c_int;
+    fn js_isnull(J: *const c_void, idx: c_int) -> c_int;
+    fn js_isboolean(J: *const c_void, idx: c_int) -> c_int;
+    fn js_isnumber(J: *const c_void, idx: c_int) -> c_int;
+    fn js_isstring(J: *const c_void, idx: c_int) -> c_int;
+    fn js_isprimitive(J: *const c_void, idx: c_int) -> c_int;
 
     fn js_throw(J: *const c_void);
 
@@ -814,6 +819,46 @@ impl State {
         }
     }
 
+    /// Test if item on stack is null
+    pub fn isnull(self: &State, idx: i32) -> bool {
+        match unsafe { js_isnull((*self.ptr).state, idx) } {
+            0 => false,
+            _ => true
+        }
+    }
+
+    /// Test if item on stack is boolean
+    pub fn isboolean(self: &State, idx: i32) -> bool {
+        match unsafe { js_isboolean((*self.ptr).state, idx) } {
+            0 => false,
+            _ => true
+        }
+    }
+
+    /// Test if item on stack is number
+    pub fn isnumber(self: &State, idx: i32) -> bool {
+        match unsafe { js_isnumber((*self.ptr).state, idx) } {
+            0 => false,
+            _ => true
+        }
+    }
+
+    /// Test if item on stack is string
+    pub fn isstring(self: &State, idx: i32) -> bool {
+        match unsafe { js_isstring((*self.ptr).state, idx) } {
+            0 => false,
+            _ => true
+        }
+    }
+
+    /// Test if item on stack is primitive
+    pub fn isprimitive(self: &State, idx: i32) -> bool {
+        match unsafe { js_isprimitive((*self.ptr).state, idx) } {
+            0 => false,
+            _ => true
+        }
+    }
+
     /// Convert value on stack to string
     pub fn tostring(self: &State, idx: i32) -> Result<String, String> {
         let c_buf: *const c_char = unsafe { js_tostring((*self.ptr).state, idx) };
@@ -1407,6 +1452,76 @@ mod tests {
         let state = ::State::new(::StateFlags{bits: 0});
         state.pushnumber(1.234);
         assert_eq!(state.isundefined(0), false);
+    }
+
+    #[test]
+    fn isnull_on_null_is_true() {
+        let state = ::State::new(::JS_STRICT);
+        state.pushnull();
+        assert_eq!(state.isnull(0), true);
+    }
+
+    #[test]
+    fn isnull_on_undefined_is_false() {
+        let state = ::State::new(::JS_STRICT);
+        state.pushundefined();
+        assert_eq!(state.isnull(0), false);
+    }
+
+    #[test]
+    fn isboolean_on_boolean_is_true() {
+        let state = ::State::new(::JS_STRICT);
+        state.pushboolean(false);
+        assert_eq!(state.isboolean(0), true);
+    }
+
+    #[test]
+    fn isboolean_on_number_is_false() {
+        let state = ::State::new(::JS_STRICT);
+        state.pushnumber(1.234);
+        assert_eq!(state.isboolean(0), false);
+    }
+
+    #[test]
+    fn isnumber_on_number_is_true() {
+        let state = ::State::new(::JS_STRICT);
+        state.pushnumber(1.2345);
+        assert_eq!(state.isnumber(0), true);
+    }
+
+    #[test]
+    fn isnumber_on_boolean_is_false() {
+        let state = ::State::new(::JS_STRICT);
+        state.pushboolean(true);
+        assert_eq!(state.isnumber(0), false);
+    }
+
+    #[test]
+    fn isstring_on_string_is_true() {
+        let state = ::State::new(::JS_STRICT);
+        state.pushstring("Hello world!");
+        assert_eq!(state.isstring(0), true);
+    }
+
+    #[test]
+    fn isstring_on_boolean_is_false() {
+        let state = ::State::new(::JS_STRICT);
+        state.pushboolean(true);
+        assert_eq!(state.isstring(0), false);
+    }
+
+    #[test]
+    fn isprimitive_on_undefined_is_true() {
+        let state = ::State::new(::JS_STRICT);
+        state.pushundefined();
+        assert_eq!(state.isprimitive(0), true);
+    }
+
+    #[test]
+    fn isprimitive_on_object_is_false() {
+        let state = ::State::new(::JS_STRICT);
+        state.newobject();
+        assert_eq!(state.isprimitive(0), false);
     }
 
     #[test]
