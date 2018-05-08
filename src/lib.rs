@@ -59,7 +59,7 @@ extern {
     fn js_ploadstring(J: *const c_void, filename: *const c_char, source: *const c_char) -> c_int;
     fn js_pcall(J: *const c_void, n: c_int) -> c_int;
     fn js_pconstruct(J: *const c_void, n: c_int) -> c_int;
-    fn js_call(J: *const c_void, n: c_int) -> c_int;
+    // fn js_call(J: *const c_void, n: c_int) -> c_int;
     fn js_dostring(J: *const c_void, source: *const c_char) -> c_int;
 
     fn js_newobject(J: *const c_void);
@@ -1022,11 +1022,9 @@ mod tests {
     #[should_panic]
     fn panic_are_handled() {
         let state = ::State::new(::StateFlags{bits: 0});
-        unsafe {
-            ::js_pushnumber((*state.ptr).state, 1.234);
-            ::js_pushnull((*state.ptr).state);
-            ::js_call((*state.ptr).state, 0);
-        }
+        state.pushnumber(1.234);
+        state.pushnull();
+        state.call(0).expect("Failure");
     }
 
     #[test]
