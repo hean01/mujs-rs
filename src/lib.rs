@@ -242,6 +242,13 @@ impl State {
         let top = unsafe { js_gettop(js) };
         let res_c_str = unsafe { js_tostring(js, top - 1) };
         let err = unsafe { CStr::from_ptr(res_c_str).to_string_lossy().into_owned() };
+        eprintln!("");
+        eprintln!("MuJS stack\n============================");
+        for i in 0..top {
+            eprintln!("{}: {}", i, unsafe {  CStr::from_ptr(js_tostring(js, i)).to_string_lossy().into_owned() });
+        }
+        eprintln!("");
+
         panic!("{:?}", err);
     }
 
