@@ -74,6 +74,9 @@ extern {
     fn js_touserdata(J: *const c_void, idx: c_int, tag: *const c_char)-> *mut c_void;
 
     fn js_isobject(J: *const c_void, idx: c_int) -> c_int;
+    fn js_isarray(J: *const c_void, idx: c_int) -> c_int;
+    fn js_iscallable(J: *const c_void, idx: c_int) -> c_int;
+    fn js_isregexp(J: *const c_void, idx: c_int) -> c_int;
 
     fn js_hasproperty(J: *const c_void, idx: c_int, name: *const c_char) -> c_int;
     fn js_getproperty(J: *const c_void, idx: c_int, name: *const c_char);
@@ -651,6 +654,30 @@ impl State {
     /// Test if stack item is an object
     pub fn isobject(self: &State, idx: i32) -> bool {
         match unsafe { js_isobject((*self.ptr).state, idx) } {
+            0 => false,
+            _ => true
+        }
+    }
+
+    /// Test if stack item is an array
+    pub fn isarray(self: &State, idx: i32) -> bool {
+        match unsafe { js_isarray((*self.ptr).state, idx) } {
+            0 => false,
+            _ => true
+        }
+    }
+
+    /// Test if stack item is callable
+    pub fn iscallable(self: &State, idx: i32) -> bool {
+        match unsafe { js_iscallable((*self.ptr).state, idx) } {
+            0 => false,
+            _ => true
+        }
+    }
+
+    /// Test if stack item is regexp
+    pub fn isregexp(self: &State, idx: i32) -> bool {
+        match unsafe { js_isregexp((*self.ptr).state, idx) } {
             0 => false,
             _ => true
         }
@@ -1660,6 +1687,48 @@ mod tests {
         let state = ::State::new(::StateFlags{bits: 0});
         state.pushnumber(1.234);
         assert_eq!(state.isobject(0), false);
+    }
+
+    #[test]
+    fn isarray_on_array_is_true() {
+        let state = ::State::new(::StateFlags{bits: 0});
+        state.newarray();
+        assert_eq!(state.isarray(0), true);
+    }
+
+    #[test]
+    fn isarray_on_object_is_false() {
+        let state = ::State::new(::StateFlags{bits: 0});
+        state.newobject();
+        assert_eq!(state.isarray(0), false);
+    }
+
+    #[test]
+    fn iscallable_on_func_is_true() {
+        let state = ::State::new(::StateFlags{bits: 0});
+        state.newarray();
+        assert_eq!(state.isarray(0), true);
+    }
+
+    #[test]
+    fn iscallable_on_object_is_false() {
+        let state = ::State::new(::StateFlags{bits: 0});
+        state.newobject();
+        assert_eq!(state.iscallable(0), false);
+    }
+
+    #[test]
+    fn isregexp_on_regexp_is_true() {
+        let state = ::State::new(::StateFlags{bits: 0});
+        state.newregexp("^Hello (.*)!$", ::JS_REGEXP_G);
+        assert_eq!(state.isregexp(0), true);
+    }
+
+    #[test]
+    fn isregexp_on_object_is_false() {
+        let state = ::State::new(::StateFlags{bits: 0});
+        state.newobject();
+        assert_eq!(state.iscallable(0), false);
     }
 
     #[test]
