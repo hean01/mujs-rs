@@ -740,6 +740,22 @@ impl State {
     /// Pop the two getter and setter functions from the stack. Use
     /// null instead of a function object if you want to leave any of
     /// the functions unset.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use mujs;
+    ///
+    /// let state = mujs::State::new(mujs::JS_STRICT);
+    ///
+    /// state.newobject();
+    ///
+    /// state.newfunction( move |x| { x.pushnumber(25.0) }, "age.getter", 0);
+    /// state.pushnull();
+    ///
+    /// state.defaccessor(0, "age", mujs::JS_DONTENUM);
+    ///
+    /// ```
     pub fn defaccessor(self: &State, idx: i32, name: &str, attrs: PropertyAttributes) {
         unsafe { js_defaccessor((*self.ptr).state, idx, name.to_cstring().unwrap().as_ptr(), attrs.bits) };
     }
@@ -1748,6 +1764,51 @@ mod tests {
         state.getproperty(0, "age");
         assert_eq!(state.tonumber(1).unwrap(), 1.0);
     }
+
+    #[test]
+    fn defaccessor_getter_should_return_value_from_closure() {
+        // Given
+        let state = ::State::new(::StateFlags{bits: 0});
+
+        state.newobject();
+
+        state.newfunction( move |x| {
+            x.pushnumber(55.0);
+        }, "age.getter", 0);
+        state.pushnull();
+        state.defaccessor(0, "age", ::JS_DONTENUM);
+
+        state.pushnumber(1.1234);
+        state.setproperty(0, "age");
+
+        // When
+        state.getproperty(0, "age");
+
+        // Then
+        assert_eq!(state.tonumber(1).unwrap(), 55.0);
+    }
+
+    #[test]
+    fn defaccessor_using_null_functions_is_noop() {
+        // Given
+        let state = ::State::new(::StateFlags{bits: 0});
+
+        state.newobject();
+        state.pushnull();
+        state.pushnull();
+        state.defaccessor(0, "age", ::JS_DONTENUM);
+
+        state.pushnumber(1.1234);
+        state.setproperty(0, "age");
+
+        // When
+        state.getproperty(0, "age");
+
+        // Then
+        assert_eq!(state.tonumber(1).unwrap(), 1.1234);
+    }
+
+
 
     #[test]
     fn delproperty_on_not_configurable_property() {
