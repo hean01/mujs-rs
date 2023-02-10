@@ -302,8 +302,8 @@ impl State {
     pub fn loadstring(self: &State, filename: &str, source: &str) -> Result<(), String> {
         match unsafe {
             js_ploadstring((*self.ptr).state,
-                           filename.to_cstring().unwrap().as_ptr(),
-                           source.to_cstring().unwrap().as_ptr())
+                           filename.to_cstring().unwrap().into_raw(),
+                           source.to_cstring().unwrap().into_raw())
         } {
             0 => Ok(()),
             _ => {
@@ -401,7 +401,7 @@ impl State {
     }
 
     pub fn dostring(self: &State, source: &str) -> Result<(), String> {
-        match unsafe {js_dostring((*self.ptr).state, source.to_cstring().unwrap().as_ptr()) } {
+        match unsafe {js_dostring((*self.ptr).state, source.to_cstring().unwrap().into_raw()) } {
             0 => Ok(()),
             _ => {
                 let err = self.tostring(-1);
@@ -432,43 +432,43 @@ impl State {
 
     ///  Push a Error onto the stack
     pub fn newerror(self: &State, message: &str) {
-        unsafe { js_newerror((*self.ptr).state, message.to_cstring().unwrap().as_ptr()) };
+        unsafe { js_newerror((*self.ptr).state, message.to_cstring().unwrap().into_raw()) };
     }
 
     /// Push an EvaluationError onto the stack
     pub fn newevalerror(self: &State, message: &str) {
-        unsafe { js_newevalerror((*self.ptr).state, message.to_cstring().unwrap().as_ptr()) }
+        unsafe { js_newevalerror((*self.ptr).state, message.to_cstring().unwrap().into_raw()) }
     }
 
     /// Push a RangeError onto the stack
     pub fn newrangeerror(self: &State, message: &str) {
-        unsafe { js_newrangeerror((*self.ptr).state, message.to_cstring().unwrap().as_ptr()) }
+        unsafe { js_newrangeerror((*self.ptr).state, message.to_cstring().unwrap().into_raw()) }
     }
 
     /// Push a ReferenceError onto the stack
     pub fn newreferenceerror(self: &State, message: &str) {
-        unsafe { js_newreferenceerror((*self.ptr).state, message.to_cstring().unwrap().as_ptr()) }
+        unsafe { js_newreferenceerror((*self.ptr).state, message.to_cstring().unwrap().into_raw()) }
     }
 
     /// Push a SyntaxError onto the stack
     pub fn newsyntaxerror(self: &State, message: &str) {
-        unsafe { js_newsyntaxerror((*self.ptr).state, message.to_cstring().unwrap().as_ptr()) }
+        unsafe { js_newsyntaxerror((*self.ptr).state, message.to_cstring().unwrap().into_raw()) }
     }
 
     /// Push a TypeError onto the stack
     pub fn newtypeerror(self: &State, message: &str) {
-        unsafe { js_newtypeerror((*self.ptr).state, message.to_cstring().unwrap().as_ptr()) }
+        unsafe { js_newtypeerror((*self.ptr).state, message.to_cstring().unwrap().into_raw()) }
     }
 
     /// Push a URIError onto the stack
     pub fn newurierror(self: &State, message: &str) {
-        unsafe { js_newurierror((*self.ptr).state, message.to_cstring().unwrap().as_ptr()) }
+        unsafe { js_newurierror((*self.ptr).state, message.to_cstring().unwrap().into_raw()) }
     }
 
     /// Throws an Error in the executing environment
     pub fn error(self: &State, message: &str) {
         unsafe {
-            js_newerror((*self.ptr).state, message.to_cstring().unwrap().as_ptr());
+            js_newerror((*self.ptr).state, message.to_cstring().unwrap().into_raw());
             js_throw((*self.ptr).state);
         };
     }
@@ -476,7 +476,7 @@ impl State {
     /// Throws an EvalError in the executing environment
     pub fn evalerror(self: &State, message: &str) {
         unsafe {
-            js_newevalerror((*self.ptr).state, message.to_cstring().unwrap().as_ptr());
+            js_newevalerror((*self.ptr).state, message.to_cstring().unwrap().into_raw());
             js_throw((*self.ptr).state);
         }
     }
@@ -484,7 +484,7 @@ impl State {
     /// Throws an RangeError in the executing environment
     pub fn rangeerror(self: &State, message: &str) {
         unsafe {
-            js_newrangeerror((*self.ptr).state, message.to_cstring().unwrap().as_ptr());
+            js_newrangeerror((*self.ptr).state, message.to_cstring().unwrap().into_raw());
             js_throw((*self.ptr).state);
         }
     }
@@ -492,7 +492,7 @@ impl State {
     /// Throws an ReferenceError in the executing environment
     pub fn referenceerror(self: &State, message: &str) {
         unsafe {
-            js_newreferenceerror((*self.ptr).state, message.to_cstring().unwrap().as_ptr());
+            js_newreferenceerror((*self.ptr).state, message.to_cstring().unwrap().into_raw());
             js_throw((*self.ptr).state);
         }
     }
@@ -500,7 +500,7 @@ impl State {
     /// Throws an SyntaxError in the executing environment
     pub fn syntaxerror(self: &State, message: &str) {
         unsafe {
-            js_newsyntaxerror((*self.ptr).state, message.to_cstring().unwrap().as_ptr());
+            js_newsyntaxerror((*self.ptr).state, message.to_cstring().unwrap().into_raw());
             js_throw((*self.ptr).state);
         }
     }
@@ -508,7 +508,7 @@ impl State {
     /// Throws an TypeError in the executing environment
     pub fn typeerror(self: &State, message: &str) {
         unsafe {
-            js_newtypeerror((*self.ptr).state, message.to_cstring().unwrap().as_ptr());
+            js_newtypeerror((*self.ptr).state, message.to_cstring().unwrap().into_raw());
             js_throw((*self.ptr).state);
         }
     }
@@ -516,7 +516,7 @@ impl State {
     /// Throws an URIError in the executing environment
     pub fn urierror(self: &State, message: &str) {
         unsafe {
-            js_newurierror((*self.ptr).state, message.to_cstring().unwrap().as_ptr());
+            js_newurierror((*self.ptr).state, message.to_cstring().unwrap().into_raw());
             js_throw((*self.ptr).state);
         }
     }
@@ -629,7 +629,7 @@ impl State {
 
     /// Create a new string and push on top of stack
     pub fn newstring(self: &State, value: &str) {
-        unsafe { js_newstring((*self.ptr).state, value.to_cstring().unwrap().as_ptr()) };
+        unsafe { js_newstring((*self.ptr).state, value.to_cstring().unwrap().into_raw()) };
     }
 
     /// Create a new regular expression and push on top of stack
@@ -655,7 +655,7 @@ impl State {
     /// assert_eq!(state.toboolean(1).unwrap(), true);
     /// ```
     pub fn newregexp(self: &State, pattern: &str, flags: RegExpFlags) {
-        unsafe { js_newregexp((*self.ptr).state, pattern.to_cstring().unwrap().as_ptr(), flags.bits) };
+        unsafe { js_newregexp((*self.ptr).state, pattern.to_cstring().unwrap().into_raw(), flags.bits) };
     }
 
     /// Test if stack item is an object
@@ -715,7 +715,7 @@ impl State {
 
     /// Push string primitive value onto the stack
     pub fn pushstring(self: &State, value: &str) {
-        unsafe { js_pushstring((*self.ptr).state, value.to_cstring().unwrap().as_ptr()) }
+        unsafe { js_pushstring((*self.ptr).state, value.to_cstring().unwrap().into_raw()) }
     }
 
     /// Test if object on stack has named property
@@ -735,7 +735,7 @@ impl State {
     /// }
     ///
     pub fn hasproperty(self: &State, idx: i32, name: &str) -> bool {
-        match unsafe { js_hasproperty((*self.ptr).state, idx, name.to_cstring().unwrap().as_ptr()) } {
+        match unsafe { js_hasproperty((*self.ptr).state, idx, name.to_cstring().unwrap().into_raw()) } {
             0 => false,
             _ => true
         }
@@ -743,12 +743,12 @@ impl State {
 
     /// Pop the value on top of stack and assigns it to named property
     pub fn setproperty(self: &State, idx: i32, name: &str) {
-        unsafe { js_setproperty((*self.ptr).state, idx, name.to_cstring().unwrap().as_ptr()) };
+        unsafe { js_setproperty((*self.ptr).state, idx, name.to_cstring().unwrap().into_raw()) };
     }
 
     /// Push the value of named property of object on top of stack
     pub fn getproperty(self: &State, idx: i32, name: &str) {
-        unsafe { js_getproperty((*self.ptr).state, idx, name.to_cstring().unwrap().as_ptr()) };
+        unsafe { js_getproperty((*self.ptr).state, idx, name.to_cstring().unwrap().into_raw()) };
     }
 
     /// Define named property of object
@@ -766,7 +766,7 @@ impl State {
     ///
     /// ```
     pub fn defproperty(self: &State, idx: i32, name: &str, attrs: PropertyAttributes) {
-        unsafe { js_defproperty((*self.ptr).state, idx, name.to_cstring().unwrap().as_ptr(), attrs.bits) };
+        unsafe { js_defproperty((*self.ptr).state, idx, name.to_cstring().unwrap().into_raw(), attrs.bits) };
     }
 
     /// Define a getter and setter attribute og a property of object on stack
@@ -791,12 +791,12 @@ impl State {
     ///
     /// ```
     pub fn defaccessor(self: &State, idx: i32, name: &str, attrs: PropertyAttributes) {
-        unsafe { js_defaccessor((*self.ptr).state, idx, name.to_cstring().unwrap().as_ptr(), attrs.bits) };
+        unsafe { js_defaccessor((*self.ptr).state, idx, name.to_cstring().unwrap().into_raw(), attrs.bits) };
     }
 
     /// Delete named property of object
     pub fn delproperty(self: &State, idx: i32, name: &str) {
-        unsafe { js_delproperty((*self.ptr).state, idx, name.to_cstring().unwrap().as_ptr()) };
+        unsafe { js_delproperty((*self.ptr).state, idx, name.to_cstring().unwrap().into_raw()) };
     }
 
     /// Get length of an array
@@ -854,17 +854,17 @@ impl State {
 
     /// Get named global variable
     pub fn getglobal(self: &State, name: &str) {
-        unsafe { js_getglobal((*self.ptr).state, name.to_cstring().unwrap().as_ptr()) }
+        unsafe { js_getglobal((*self.ptr).state, name.to_cstring().unwrap().into_raw()) }
     }
 
     /// Set named variable with object on top of stack
     pub fn setglobal(self: &State, name: &str) {
-        unsafe { js_setglobal((*self.ptr).state, name.to_cstring().unwrap().as_ptr()) }
+        unsafe { js_setglobal((*self.ptr).state, name.to_cstring().unwrap().into_raw()) }
     }
 
     /// Define named global variable
     pub fn defglobal(self: &State, name: &str, attrs: PropertyAttributes) {
-        unsafe { js_defglobal((*self.ptr).state, name.to_cstring().unwrap().as_ptr(), attrs.bits) }
+        unsafe { js_defglobal((*self.ptr).state, name.to_cstring().unwrap().into_raw(), attrs.bits) }
     }
 
     extern fn _newcfunction_trampoline(js: *const c_void) {
@@ -874,8 +874,8 @@ impl State {
 
         let cb_ptr = unsafe {
             js_currentfunction(js);
-            js_getproperty(js, -1, CLOSURE_TAG.to_cstring().unwrap().as_ptr());
-            js_touserdata(js, -1, CLOSURE_TAG.to_cstring().unwrap().as_ptr())
+            js_getproperty(js, -1, CLOSURE_TAG.to_cstring().unwrap().into_raw());
+            js_touserdata(js, -1, CLOSURE_TAG.to_cstring().unwrap().into_raw())
         };
 
         let func: &mut Box<FnMut(&State)> = unsafe { std::mem::transmute(cb_ptr) };
@@ -911,11 +911,11 @@ impl State {
         let cb_ptr = Box::into_raw(cb) as *mut _;
         unsafe {
             js_newcfunction((*self.ptr).state, Some(::State::_newcfunction_trampoline),
-                            name.to_cstring().unwrap().as_ptr(),length);
+                            name.to_cstring().unwrap().into_raw(),length);
             js_pushnull((*self.ptr).state);
-            js_newuserdata((*self.ptr).state,CLOSURE_TAG.to_cstring().unwrap().as_ptr(),
+            js_newuserdata((*self.ptr).state,CLOSURE_TAG.to_cstring().unwrap().into_raw(),
                            cb_ptr, Some(::State::_finalize));
-            js_defproperty((*self.ptr).state, -2, CLOSURE_TAG.to_cstring().unwrap().as_ptr(),
+            js_defproperty((*self.ptr).state, -2, CLOSURE_TAG.to_cstring().unwrap().into_raw(),
                            (::JS_READONLY | ::JS_DONTENUM | ::JS_DONTCONF).bits);
         };
     }
@@ -1023,17 +1023,17 @@ impl State {
     /// ```
     ///
     pub fn getregistry(self: &State, name: &str) {
-        unsafe { js_getregistry((*self.ptr).state, name.to_cstring().unwrap().as_ptr()) }
+        unsafe { js_getregistry((*self.ptr).state, name.to_cstring().unwrap().into_raw()) }
     }
 
     /// Store top of stack as named entry in registry
     pub fn setregistry(self: &State, name: &str) {
-        unsafe { js_setregistry((*self.ptr).state, name.to_cstring().unwrap().as_ptr()) }
+        unsafe { js_setregistry((*self.ptr).state, name.to_cstring().unwrap().into_raw()) }
     }
 
     /// Delete name registry entry
     pub fn delregistry(self: &State, name: &str) {
-        unsafe { js_delregistry((*self.ptr).state, name.to_cstring().unwrap().as_ptr()) }
+        unsafe { js_delregistry((*self.ptr).state, name.to_cstring().unwrap().into_raw()) }
     }
 }
 
